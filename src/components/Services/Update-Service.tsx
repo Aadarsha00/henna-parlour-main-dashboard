@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/rules-of-hooks */
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Edit, Trash2 } from "lucide-react";
@@ -8,7 +8,7 @@ import { LoadingSpinner } from "../ui/Loading";
 import { ErrorMessage } from "../ui/Error";
 import ServiceForm from "./Service-Form";
 import DeleteServiceDialog from "./Delete-Service";
-import type { Service } from "@/interface/Service.interface";
+import type { Service, ServiceFormData } from "@/interface/Service.interface";
 
 const UpdateServicePage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,19 +41,30 @@ const UpdateServicePage: React.FC = () => {
     enabled: true, // always enabled since serviceId is valid here
   });
 
+  // Transform Service to ServiceFormData
+  const formData = useMemo<Partial<ServiceFormData> | undefined>(() => {
+    if (!service) return undefined;
+    
+    return {
+      name: service.name,
+      description: service.description,
+      price: String(service.price), // Convert to string
+      category: service.category,
+      duration_minutes: service.duration_minutes,
+      deposit_amount: String(service.deposit_amount), // Convert to string
+      requires_deposit: service.requires_deposit,
+    };
+  }, [service]);
+
   // Mutation to update service
   const updateServiceMutation = useMutation({
-    mutationFn: (data: Partial<Service>) => updateService(serviceId, data),
-    onSuccess: (data) => {
+    mutationFn: (data: ServiceFormData) => updateService(serviceId, data),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       queryClient.invalidateQueries({ queryKey: ["service", serviceId] });
-      console.log("Service updated successfully:", data);
       navigate("/services", {
         state: { message: "Service updated successfully!" },
       });
-    },
-    onError: (error) => {
-      console.error("Failed to update service:", error);
     },
   });
 
@@ -62,13 +73,9 @@ const UpdateServicePage: React.FC = () => {
     mutationFn: () => deleteService(serviceId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      console.log("Service deleted successfully");
       navigate("/services", {
         state: { message: "Service deleted successfully!" },
       });
-    },
-    onError: (error) => {
-      console.error("Failed to delete service:", error);
     },
   });
 
@@ -76,7 +83,7 @@ const UpdateServicePage: React.FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Submit handler for the form
-  const handleSubmit = async (formData: Partial<Service>) => {
+  const handleSubmit = async (formData: ServiceFormData) => {
     await updateServiceMutation.mutateAsync(formData);
   };
 
@@ -180,7 +187,7 @@ const UpdateServicePage: React.FC = () => {
             <div className="p-8">
               <ServiceForm
                 onSubmit={handleSubmit}
-                initialData={service || undefined}
+                initialData={formData}
                 isLoading={updateServiceMutation.status === "pending"}
                 submitButtonText="Update Service"
               />

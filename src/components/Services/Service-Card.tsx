@@ -26,8 +26,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDelete }) => {
     return `${minutes}m`;
   };
 
-  const formatPrice = (price: string): string => {
-    return `$${parseFloat(price).toFixed(2)}`;
+  const formatPrice = (price: string | number): string => {
+    return `$${Number(price).toFixed(2)}`;
   };
 
   const getCategoryColor = (category: string): string => {

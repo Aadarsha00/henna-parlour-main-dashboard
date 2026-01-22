@@ -98,9 +98,9 @@ const ServiceDetailPage: React.FC = () => {
       : `${minutes}m`;
   };
 
-  const formatPrice = (price?: string): string => {
+  const formatPrice = (price?: string | number): string => {
     if (!price) return "$0.00";
-    return `$${parseFloat(price).toFixed(2)}`;
+    return `$${Number(price).toFixed(2)}`;
   };
 
   const getCategoryColor = (category?: string): string => {
