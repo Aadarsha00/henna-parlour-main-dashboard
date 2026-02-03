@@ -44,24 +44,6 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
     );
   };
 
-  const getPaymentBadge = (paymentStatus: string) => {
-    const styles = {
-      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      paid: "bg-green-100 text-green-800 border-green-200",
-      refunded: "bg-gray-100 text-gray-800 border-gray-200",
-    };
-
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium border ${
-          styles[paymentStatus as keyof typeof styles] || styles.pending
-        }`}
-      >
-        {paymentStatus.toUpperCase()}
-      </span>
-    );
-  };
-
   const formatTime = (time: string) => {
     return new Date(`2000-01-01T${time}`).toLocaleTimeString([], {
       hour: "2-digit",
@@ -136,10 +118,9 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
               </div>
             </div>
 
-            {/* Status and Payment Badges */}
-            <div className="flex flex-col items-end gap-1 ml-4">
+            {/* Status Badge Only - No Payment Status */}
+            <div className="ml-4">
               {getStatusBadge(appointment.status)}
-              {getPaymentBadge(appointment.payment_status)}
             </div>
           </div>
 
@@ -179,11 +160,6 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
               <p className="text-lg font-bold text-gray-900">
                 ${appointment.total_amount}
               </p>
-              {appointment.payment_summary.remaining_balance > 0 && (
-                <p className="text-xs text-red-600 font-medium">
-                  Balance: ${appointment.payment_summary.remaining_balance}
-                </p>
-              )}
             </div>
           </div>
 

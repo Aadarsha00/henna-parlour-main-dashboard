@@ -22,14 +22,23 @@ const AppointmentTabs = ({
   const [searchTerm, setSearchTerm] = useState("");
 
   const categorizedAppointments = useMemo(() => {
-    if (!appointments?.results) return { upcoming: [], past: [] };
+    if (!appointments?.results) {
+      console.log("❌ No appointments data");
+      return { upcoming: [], past: [] };
+    }
 
     const now = new Date();
     const todayDate = now.toISOString().split("T")[0];
+    
+    console.log("📅 Today's date:", todayDate);
+    console.log("📊 Total appointments in data:", appointments.results.length);
 
     const filtered = appointments.results.filter((apt: Appointment) => {
       // Exclude today's appointments (they're handled separately)
-      if (apt.appointment_date === todayDate) return false;
+      if (apt.appointment_date === todayDate) {
+        console.log("⏭️ Skipping today's appointment:", apt.appointment_date, apt.client_name);
+        return false;
+      }
 
       // Search filter
       if (searchTerm) {
@@ -46,26 +55,53 @@ const AppointmentTabs = ({
       return true;
     });
 
+    console.log("✅ Appointments after filtering (excluding today):", filtered.length);
+
     const categorized = {
       upcoming: [] as Appointment[],
       past: [] as Appointment[],
     };
 
     filtered.forEach((apt: Appointment) => {
-      if (apt.appointment_date > todayDate) {
+      const appointmentDate = apt.appointment_date;
+      
+      console.log(`\n🔍 Processing appointment:
+        Client: ${apt.client_name}
+        Date: ${appointmentDate}
+        Status: ${apt.status}
+        Today: ${todayDate}
+        Comparison: ${appointmentDate} vs ${todayDate}
+        Is Future? ${appointmentDate > todayDate}
+        Is Past? ${appointmentDate < todayDate}`);
+      
+      // Compare dates: if appointment date is after today, it's upcoming
+      if (appointmentDate > todayDate) {
+        console.log(`  → Future appointment`);
         // Only show active appointments in upcoming (not cancelled, completed, or no_show)
         if (
           apt.status !== "cancelled" &&
           apt.status !== "completed" &&
           apt.status !== "no_show"
         ) {
+          console.log(`  ✅ Added to UPCOMING (status: ${apt.status})`);
           categorized.upcoming.push(apt);
+        } else {
+          console.log(`  ⛔ Skipped (inactive status: ${apt.status})`);
         }
-      } else {
-        // Past appointments can include all statuses
+      } 
+      // If appointment date is before today, it's past
+      else if (appointmentDate < todayDate) {
+        console.log(`  ← Past appointment - Adding to PAST (status: ${apt.status})`);
+        // Past appointments - include ALL appointments regardless of status
         categorized.past.push(apt);
+      } else {
+        console.log(`  ⚠️ Date equals today (should have been filtered)`);
       }
     });
+
+    console.log("\n📈 FINAL COUNTS:");
+    console.log("  Upcoming:", categorized.upcoming.length);
+    console.log("  Past:", categorized.past.length);
 
     // Sort upcoming appointments (earliest first)
     categorized.upcoming = categorized.upcoming.sort((a, b) => {
@@ -131,7 +167,10 @@ const AppointmentTabs = ({
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  console.log(`🔄 Switching to ${tab.key} tab`);
+                  setActiveTab(tab.key);
+                }}
                 className={`
                   px-8 py-3 font-medium transition-all duration-200 border-b-2 flex items-center gap-2 min-w-[140px] rounded-t-lg
                   ${

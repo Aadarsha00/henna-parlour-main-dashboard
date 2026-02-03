@@ -30,10 +30,11 @@ const TodaysSummary = () => {
     let overdue = 0;
 
     todaysData.results.forEach((apt: any) => {
-      // Check if appointment was booked today
+      // Check if appointment was booked today AND is still active (booked or confirmed)
       if (
         apt.created_at &&
-        new Date(apt.created_at).toISOString().split("T")[0] === todayDate
+        new Date(apt.created_at).toISOString().split("T")[0] === todayDate &&
+        (apt.status === "booked" || apt.status === "confirmed")
       ) {
         newBookings++;
       }
