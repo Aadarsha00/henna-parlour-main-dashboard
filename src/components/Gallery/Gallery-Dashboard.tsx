@@ -11,6 +11,7 @@ import GalleryFilter from "./Filter";
 import LoadingSpinner from "./Loading";
 import GalleryCard from "./Card";
 import toast from "react-hot-toast";
+import { showConfirmationToast } from "@/components/ui/confirm-toast";
 
 const GalleryPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -77,9 +78,13 @@ const GalleryPage: React.FC = () => {
 
   // Handle delete
   const handleDelete = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this image?")) {
-      deleteMutation.mutate(id);
-    }
+    showConfirmationToast({
+      title: "Delete this gallery image?",
+      description: "This image will be removed permanently.",
+      confirmLabel: "Delete image",
+      destructive: true,
+      onConfirm: () => deleteMutation.mutateAsync(id),
+    });
   };
 
   const filteredImages = galleryData?.results ?? [];

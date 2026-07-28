@@ -20,6 +20,7 @@ import {
   getBlogCategories,
 } from "@/api/blog.api";
 import type { UpdateBlogPostRequest } from "@/interface/blog.interface";
+import { showConfirmationToast } from "@/components/ui/confirm-toast";
 
 interface UpdateBlogFormData {
   title: string;
@@ -240,16 +241,19 @@ const UpdateBlogPost: React.FC = () => {
   };
 
   const handleCancel = () => {
-    if (
-      hasChanges &&
-      window.confirm(
-        "Are you sure you want to cancel? All unsaved changes will be lost."
-      )
-    ) {
+    if (!hasChanges) {
       navigate("/blog");
-    } else if (!hasChanges) {
-      navigate("/blog");
+      return;
     }
+
+    showConfirmationToast({
+      title: "Discard your blog changes?",
+      description: "All unsaved changes will be lost.",
+      cancelLabel: "Keep editing",
+      confirmLabel: "Discard changes",
+      destructive: true,
+      onConfirm: () => navigate("/blog"),
+    });
   };
 
   if (postLoading || categoriesLoading) {

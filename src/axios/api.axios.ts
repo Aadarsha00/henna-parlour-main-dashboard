@@ -2,9 +2,18 @@ import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from "axios";
+import {
+  clearStoredSession,
+  readStoredSession,
+  writeStoredSession,
+} from "@/context/auth-storage";
+import { resolveApiBaseUrl } from "@/lib/runtime-config.js";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api";
+export const API_BASE_URL = resolveApiBaseUrl(
+  import.meta.env.VITE_API_BASE_URL,
+  import.meta.env.DEV
+);
+const REQUEST_TIMEOUT_MS = 15_000;
 
 interface TokenErrorResponse {
   detail?: string;
@@ -23,7 +32,7 @@ interface RetryableRequest extends InternalAxiosRequestConfig {
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15_000,
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 let isRefreshing = false;
@@ -40,13 +49,8 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = [];
 };
 
-const clearSession = () => {
-  localStorage.removeItem("access");
-  localStorage.removeItem("refresh");
-};
-
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("access");
+  const token = readStoredSession()?.access;
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -89,31 +93,39 @@ api.interceptors.response.use(
 
     originalRequest._retry = true;
     isRefreshing = true;
-    const refreshToken = localStorage.getItem("refresh");
+    const currentSession = readStoredSession();
+    const refreshToken = currentSession?.refresh;
 
     if (!refreshToken) {
       processQueue(error);
-      clearSession();
-      window.location.assign("/login");
+      clearStoredSession();
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
       return Promise.reject(error);
     }
 
     try {
       const response = await axios.post<RefreshResponse>(
         `${API_BASE_URL}/auth/jwt/refresh/`,
-        { refresh: refreshToken }
+        { refresh: refreshToken },
+        { timeout: REQUEST_TIMEOUT_MS }
       );
       const { access, refresh: rotatedRefresh } = response.data;
-      localStorage.setItem("access", access);
-      if (rotatedRefresh) localStorage.setItem("refresh", rotatedRefresh);
+      writeStoredSession({
+        access,
+        refresh: rotatedRefresh ?? refreshToken,
+      });
 
       originalRequest.headers.Authorization = `Bearer ${access}`;
       processQueue(null, access);
       return api(originalRequest);
     } catch (refreshError) {
       processQueue(refreshError);
-      clearSession();
-      window.location.assign("/login");
+      clearStoredSession();
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
       return Promise.reject(refreshError);
     } finally {
       isRefreshing = false;

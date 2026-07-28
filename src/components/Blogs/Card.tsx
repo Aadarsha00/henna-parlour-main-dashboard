@@ -1,6 +1,7 @@
 import type { BlogPost } from "@/interface/blog.interface";
 import { Calendar, Edit2, Eye, FileText, Star, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { showConfirmationToast } from "@/components/ui/confirm-toast";
 
 export const BlogCard: React.FC<{
   post: BlogPost;
@@ -18,9 +19,13 @@ export const BlogCard: React.FC<{
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm("Delete this blog post permanently?")) {
-      void onDelete(post.slug).catch(() => undefined);
-    }
+    showConfirmationToast({
+      title: "Delete this blog post permanently?",
+      description: "This cannot be undone.",
+      confirmLabel: "Delete post",
+      destructive: true,
+      onConfirm: () => onDelete(post.slug),
+    });
   };
 
   const handleView = (e: React.MouseEvent) => {

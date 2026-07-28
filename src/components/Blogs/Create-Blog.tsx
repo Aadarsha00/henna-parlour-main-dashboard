@@ -16,6 +16,7 @@ import {
 import { createBlogPost, getBlogCategories } from "@/api/blog.api";
 import type { CreateBlogPostRequest } from "@/interface/blog.interface";
 import { toast } from "react-hot-toast";
+import { showConfirmationToast } from "@/components/ui/confirm-toast";
 
 interface CreateBlogFormData {
   title: string;
@@ -160,13 +161,14 @@ const CreateBlogPost: React.FC = () => {
   };
 
   const handleCancel = () => {
-    if (
-      window.confirm(
-        "Are you sure you want to cancel? All changes will be lost."
-      )
-    ) {
-      navigate("/blog");
-    }
+    showConfirmationToast({
+      title: "Discard this new blog post?",
+      description: "All unsaved changes will be lost.",
+      cancelLabel: "Keep editing",
+      confirmLabel: "Discard changes",
+      destructive: true,
+      onConfirm: () => navigate("/blog"),
+    });
   };
 
   React.useEffect(() => {

@@ -48,6 +48,14 @@ export const getCurrentUser = async (): Promise<AdminUser> => {
   }
 };
 
-export const logoutUser = async (): Promise<void> => {
-  await api.post("/auth/logout/");
+export const logoutUser = async (accessToken: string): Promise<void> => {
+  await api.post(
+    "/auth/logout/",
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
 };

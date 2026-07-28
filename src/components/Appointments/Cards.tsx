@@ -13,6 +13,8 @@ import {
   Bell,
   Star,
 } from "lucide-react";
+import { showConfirmationToast } from "@/components/ui/confirm-toast";
+import { parseDateOnlyLocal } from "@/lib/runtime-config.js";
 import { useAppointmentActions } from "./hooks";
 
 interface AppointmentCardProps {
@@ -53,7 +55,7 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
   };
 
   const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString([], {
+    return parseDateOnlyLocal(date).toLocaleDateString([], {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -73,11 +75,17 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
 
   const runAction = (
     prompt: string,
-    action: () => Promise<unknown>
+    action: () => Promise<unknown>,
+    confirmLabel: string,
+    destructive = false
   ) => {
-    if (window.confirm(prompt)) {
-      void action().catch(() => undefined);
-    }
+    showConfirmationToast({
+      title: prompt,
+      description: "Please confirm before this appointment is updated.",
+      confirmLabel,
+      destructive,
+      onConfirm: action,
+    });
   };
 
   return (
@@ -196,8 +204,10 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
             <button
               type="button"
               onClick={() =>
-                runAction("Confirm this appointment?", () =>
-                  actions.confirmAppointment(appointment.id)
+                runAction(
+                  "Confirm this appointment?",
+                  () => actions.confirmAppointment(appointment.id),
+                  "Confirm appointment"
                 )
               }
               disabled={actions.isLoading}
@@ -210,38 +220,42 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
           )}
 
           {canComplete && (
-              <button
-                type="button"
-                onClick={() =>
-                  runAction("Mark this appointment as completed?", () =>
-                    actions.markCompleted(appointment.id)
-                  )
-                }
-                disabled={actions.isLoading}
-                className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded hover:from-blue-700 hover:to-blue-800 transition-all duration-200 text-xs font-semibold shadow-sm"
-                title="Mark Completed"
-              >
-                <CheckCircle className="h-3 w-3" />
-                Complete
-              </button>
-
+            <button
+              type="button"
+              onClick={() =>
+                runAction(
+                  "Mark this appointment as completed?",
+                  () => actions.markCompleted(appointment.id),
+                  "Mark completed"
+                )
+              }
+              disabled={actions.isLoading}
+              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded hover:from-blue-700 hover:to-blue-800 transition-all duration-200 text-xs font-semibold shadow-sm"
+              title="Mark Completed"
+            >
+              <CheckCircle className="h-3 w-3" />
+              Complete
+            </button>
           )}
 
           {canMarkNoShow && (
-              <button
-                type="button"
-                onClick={() =>
-                  runAction("Mark this customer as a no-show?", () =>
-                    actions.markNoShow(appointment.id)
-                  )
-                }
-                disabled={actions.isLoading}
-                className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded hover:from-orange-700 hover:to-orange-800 transition-all duration-200 text-xs font-semibold shadow-sm"
-                title="Mark No Show"
-              >
-                <AlertCircle className="h-3 w-3" />
-                No Show
-              </button>
+            <button
+              type="button"
+              onClick={() =>
+                runAction(
+                  "Mark this customer as a no-show?",
+                  () => actions.markNoShow(appointment.id),
+                  "Mark no-show",
+                  true
+                )
+              }
+              disabled={actions.isLoading}
+              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded hover:from-orange-700 hover:to-orange-800 transition-all duration-200 text-xs font-semibold shadow-sm"
+              title="Mark No Show"
+            >
+              <AlertCircle className="h-3 w-3" />
+              No Show
+            </button>
           )}
 
           {canCancel && (
@@ -252,7 +266,11 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
                   appointment.can_cancel
                     ? "Cancel this appointment?"
                     : "This is within 24 hours and will be recorded as a late cancellation. Continue?",
-                  () => actions.cancelAppointment(appointment.id)
+                  () => actions.cancelAppointment(appointment.id),
+                  appointment.can_cancel
+                    ? "Cancel appointment"
+                    : "Late cancel",
+                  true
                 )
               }
               disabled={actions.isLoading}
