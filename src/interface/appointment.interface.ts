@@ -1,25 +1,19 @@
-// Service Details interface
+export type AppointmentStatus =
+  | "booked"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "late_cancelled"
+  | "no_show";
+
 export interface ServiceDetails {
   id: number;
   name: string;
-  description: string;
   price: string;
-  duration_minutes: number;
   category: string;
-  deposit_amount: string;
-  requires_deposit: boolean;
+  duration_minutes: number;
 }
 
-// Payment Summary interface
-export interface PaymentSummary {
-  can_be_refunded: boolean;
-  has_deposit_paid: boolean;
-  is_fully_paid: boolean;
-  remaining_balance: number;
-  total_paid: number;
-}
-
-// Main Appointment interface
 export interface Appointment {
   id: number;
   client_name: string;
@@ -28,60 +22,65 @@ export interface Appointment {
   service: number;
   service_details: ServiceDetails;
   stylist: number | null;
+  stylist_name?: string;
   appointment_date: string;
   appointment_time: string;
   notes?: string;
-  status: "booked" | "confirmed" | "completed" | "cancelled" | "no_show";
-  payment_status: "pending" | "paid" | "refunded";
+  status: AppointmentStatus;
   created_at: string;
   updated_at: string;
   duration_minutes: number;
   total_amount: string;
-  deposit_amount: string;
   can_cancel: boolean;
   is_past_due: boolean;
-  payment_summary: PaymentSummary;
+  is_new?: boolean;
+  needs_attention?: boolean;
 }
 
-// For creating new appointments
-export interface CreateAppointmentData {
-  client_name: string;
-  client_email: string;
-  client_phone: string;
-  service: number;
-  stylist: number;
-  appointment_date: string;
-  appointment_time: string;
-  notes?: string;
-}
-
-// For updating existing appointments
 export interface UpdateAppointmentData {
   appointment_date?: string;
   appointment_time?: string;
   notes?: string;
-  status?: "booked" | "confirmed" | "completed" | "cancelled" | "no_show";
-  payment_status?: "pending" | "paid" | "refunded";
 }
 
-// For filtering appointments
 export interface AppointmentFilters {
-  status?: "booked" | "confirmed" | "completed" | "cancelled" | "no_show";
-  payment_status?: "pending" | "paid" | "refunded";
+  status?: AppointmentStatus;
   appointment_date?: string;
+  appointment_date__gte?: string;
+  appointment_date__lte?: string;
   service?: number;
-  stylist?: number;
 }
 
-// API Response types
 export interface AppointmentListResponse {
   count: number;
-  next?: string;
-  previous?: string;
+  next: string | null;
+  previous: string | null;
   results: Appointment[];
 }
 
-export interface AppointmentResponse {
-  appointment: Appointment;
-  message?: string;
+export interface AppointmentActionResponse {
+  message: string;
+  status?: AppointmentStatus;
+}
+
+export interface AvailabilitySlot {
+  value: string;
+  label: string;
+}
+
+export interface AppointmentAvailability {
+  date: string;
+  service: number;
+  duration_minutes: number;
+  slots: AvailabilitySlot[];
+}
+
+export interface AppointmentCounts {
+  booked: number;
+  confirmed: number;
+  completed: number;
+  cancelled: number;
+  late_cancelled: number;
+  no_show: number;
+  total: number;
 }

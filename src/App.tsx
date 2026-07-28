@@ -1,67 +1,85 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { Loader2 } from "lucide-react";
 
 import { AppLayout } from "./components/layout/App-Layout";
-import AllServicesPage from "./components/Services/Get-AllServices";
-import AddServicePage from "./components/Services/AddService";
-import UpdateServicePage from "./components/Services/Update-Service";
-import ServiceDetailPage from "./components/Services/Service-Detail";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
 import ProtectedRoute from "./context/ProtectedRoute";
-import Appointment from "./pages/Appointment/Appointment";
-import Blogs from "./pages/Blog/All-Blogs";
-import CreateBlog from "./pages/Blog/Create-Blog";
-import UpdateBlog from "./pages/Blog/Update-Blog";
-import BlogDetail from "./pages/Blog/Blog-Detail";
-import Gallery from "./pages/Gallery/All-Gallery";
-import AddGallery from "./pages/Gallery/Add-Gallery";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Login = lazy(() => import("./pages/Login"));
+const AllServicesPage = lazy(
+  () => import("./components/Services/Get-AllServices")
+);
+const AddServicePage = lazy(() => import("./components/Services/AddService"));
+const UpdateServicePage = lazy(
+  () => import("./components/Services/Update-Service")
+);
+const ServiceDetailPage = lazy(
+  () => import("./components/Services/Service-Detail")
+);
+const Appointment = lazy(
+  () => import("./pages/Appointment/Appointment")
+);
+const Blogs = lazy(() => import("./pages/Blog/All-Blogs"));
+const CreateBlog = lazy(() => import("./pages/Blog/Create-Blog"));
+const UpdateBlog = lazy(() => import("./pages/Blog/Update-Blog"));
+const BlogDetail = lazy(() => import("./pages/Blog/Blog-Detail"));
+const Gallery = lazy(() => import("./pages/Gallery/All-Gallery"));
+const AddGallery = lazy(() => import("./pages/Gallery/Add-Gallery"));
+
+const PageLoader = () => (
+  <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+    <span className="ml-2 text-gray-700">Loading…</span>
+  </div>
+);
 
 function App() {
   return (
-    <Routes>
-      {/* Public Route - Login */}
-      <Route path="/login" element={<Login />} />
-
-      {/* Protected Routes */}
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <AppLayout>
-              <Routes>
-                <Route
-                  path="/"
-                  element={<Navigate to="/dashboard" replace />}
-                />
-                <Route path="/dashboard" element={<Dashboard />} />
-
-                {/* Services Routes */}
-                <Route path="/services" element={<AllServicesPage />} />
-                <Route path="/services/add" element={<AddServicePage />} />
-                <Route
-                  path="/services/update/:id"
-                  element={<UpdateServicePage />}
-                />
-                <Route path="/services/:id" element={<ServiceDetailPage />} />
-
-                {/*Appointment Routes */}
-                <Route path="/appointments" element={<Appointment />} />
-
-                {/*Blog Routes */}
-                <Route path="/blog" element={<Blogs />} />
-                <Route path="/blog/create" element={<CreateBlog />} />
-                <Route path="/blog/edit/:slug" element={<UpdateBlog />} />
-                <Route path="/blog/:slug" element={<BlogDetail />} />
-
-                {/*Gallery Routes */}
-                <Route path="/gallery" element={<Gallery />} />
-                <Route path="/gallery/add" element={<AddGallery />} />
-              </Routes>
-            </AppLayout>
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Suspense fallback={<PageLoader />}>
+                  <Routes>
+                    <Route
+                      path="/"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/services" element={<AllServicesPage />} />
+                    <Route path="/services/add" element={<AddServicePage />} />
+                    <Route
+                      path="/services/update/:id"
+                      element={<UpdateServicePage />}
+                    />
+                    <Route
+                      path="/services/:id"
+                      element={<ServiceDetailPage />}
+                    />
+                    <Route path="/appointments" element={<Appointment />} />
+                    <Route path="/blog" element={<Blogs />} />
+                    <Route path="/blog/create" element={<CreateBlog />} />
+                    <Route path="/blog/edit/:slug" element={<UpdateBlog />} />
+                    <Route path="/blog/:slug" element={<BlogDetail />} />
+                    <Route path="/gallery" element={<Gallery />} />
+                    <Route path="/gallery/add" element={<AddGallery />} />
+                    <Route
+                      path="*"
+                      element={<Navigate to="/dashboard" replace />}
+                    />
+                  </Routes>
+                </Suspense>
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
   );
 }
 

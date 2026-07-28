@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Appointment } from "@/interface/appointment.interface";
 import {
   User,
@@ -30,6 +29,7 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
       confirmed: "bg-green-100 text-green-800 border-green-200",
       completed: "bg-gray-100 text-gray-800 border-gray-200",
       cancelled: "bg-red-100 text-red-800 border-red-200",
+      late_cancelled: "bg-orange-100 text-orange-800 border-orange-200",
       no_show: "bg-orange-100 text-orange-800 border-orange-200",
     };
 
@@ -61,9 +61,24 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
     });
   };
 
-  // Check if appointment is new (booked today) or needs attention
-  const isNewAppointment = (appointment as any).is_new || false;
-  const needsAttention = (appointment as any).needs_attention || false;
+  const isNewAppointment = appointment.is_new ?? false;
+  const needsAttention = appointment.needs_attention ?? false;
+  const isActive =
+    appointment.status === "booked" || appointment.status === "confirmed";
+  const canConfirm = appointment.status === "booked" && !appointment.is_past_due;
+  const canComplete =
+    appointment.status === "confirmed" && appointment.is_past_due;
+  const canMarkNoShow = isActive && appointment.is_past_due;
+  const canCancel = isActive && !appointment.is_past_due;
+
+  const runAction = (
+    prompt: string,
+    action: () => Promise<unknown>
+  ) => {
+    if (window.confirm(prompt)) {
+      void action().catch(() => undefined);
+    }
+  };
 
   return (
     <div
@@ -118,7 +133,6 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
               </div>
             </div>
 
-            {/* Status Badge Only - No Payment Status */}
             <div className="ml-4">
               {getStatusBadge(appointment.status)}
             </div>
@@ -155,7 +169,7 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
             <div className="bg-gray-50 p-3 rounded">
               <h4 className="font-medium text-gray-900 mb-1 flex items-center text-sm">
                 <DollarSign className="h-3 w-3 mr-1" />
-                Amount
+                Service price
               </h4>
               <p className="text-lg font-bold text-gray-900">
                 ${appointment.total_amount}
@@ -178,9 +192,14 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
       {/* Action Buttons - Compact */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <div className="flex items-center space-x-2">
-          {appointment.status === "booked" && (
+          {canConfirm && (
             <button
-              onClick={() => actions.confirmAppointment(appointment.id)}
+              type="button"
+              onClick={() =>
+                runAction("Confirm this appointment?", () =>
+                  actions.confirmAppointment(appointment.id)
+                )
+              }
               disabled={actions.isLoading}
               className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded hover:from-green-700 hover:to-green-800 transition-all duration-200 text-xs font-semibold shadow-sm"
               title="Confirm Appointment"
@@ -190,11 +209,14 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
             </button>
           )}
 
-          {(appointment.status === "booked" ||
-            appointment.status === "confirmed") && (
-            <>
+          {canComplete && (
               <button
-                onClick={() => actions.markCompleted(appointment.id)}
+                type="button"
+                onClick={() =>
+                  runAction("Mark this appointment as completed?", () =>
+                    actions.markCompleted(appointment.id)
+                  )
+                }
                 disabled={actions.isLoading}
                 className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded hover:from-blue-700 hover:to-blue-800 transition-all duration-200 text-xs font-semibold shadow-sm"
                 title="Mark Completed"
@@ -203,8 +225,16 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
                 Complete
               </button>
 
+          )}
+
+          {canMarkNoShow && (
               <button
-                onClick={() => actions.markNoShow(appointment.id)}
+                type="button"
+                onClick={() =>
+                  runAction("Mark this customer as a no-show?", () =>
+                    actions.markNoShow(appointment.id)
+                  )
+                }
                 disabled={actions.isLoading}
                 className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 text-white rounded hover:from-orange-700 hover:to-orange-800 transition-all duration-200 text-xs font-semibold shadow-sm"
                 title="Mark No Show"
@@ -212,23 +242,31 @@ const AppointmentCard = ({ appointment, onEdit }: AppointmentCardProps) => {
                 <AlertCircle className="h-3 w-3" />
                 No Show
               </button>
-            </>
           )}
 
-          {appointment.can_cancel && (
+          {canCancel && (
             <button
-              onClick={() => actions.cancelAppointment(appointment.id)}
+              type="button"
+              onClick={() =>
+                runAction(
+                  appointment.can_cancel
+                    ? "Cancel this appointment?"
+                    : "This is within 24 hours and will be recorded as a late cancellation. Continue?",
+                  () => actions.cancelAppointment(appointment.id)
+                )
+              }
               disabled={actions.isLoading}
               className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded hover:from-red-700 hover:to-red-800 transition-all duration-200 text-xs font-semibold shadow-sm"
               title="Cancel Appointment"
             >
               <XCircle className="h-3 w-3" />
-              Cancel
+              {appointment.can_cancel ? "Cancel" : "Late cancel"}
             </button>
           )}
         </div>
 
         <button
+          type="button"
           onClick={() => onEdit(appointment)}
           className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 text-xs font-semibold"
           title="Edit Appointment"

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -14,6 +14,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { getBlogPostBySlug } from "@/api/blog.api";
+import DOMPurify from "dompurify";
+import toast from "react-hot-toast";
 
 const BlogDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -31,7 +33,7 @@ const BlogDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (blogPost) {
-      document.title = `${blogPost.title} | Your Blog`;
+      document.title = `${blogPost.title} | Beautiful Brows & Henna`;
       if (blogPost.meta_description) {
         const metaDescription = document.querySelector(
           'meta[name="description"]'
@@ -47,7 +49,7 @@ const BlogDetailPage: React.FC = () => {
       }
     }
     return () => {
-      document.title = "Your Blog";
+      document.title = "Beautiful Brows & Henna";
     };
   }, [blogPost]);
 
@@ -59,15 +61,17 @@ const BlogDetailPage: React.FC = () => {
           text: blogPost.excerpt || blogPost.meta_description,
           url: window.location.href,
         });
-      } catch {
-        console.log("Share cancelled");
+      } catch (error) {
+        if (error instanceof DOMException && error.name !== "AbortError") {
+          toast.error("Unable to share this post.");
+        }
       }
     } else {
       try {
         await navigator.clipboard.writeText(window.location.href);
-        alert("Link copied to clipboard!");
+        toast.success("Link copied.");
       } catch {
-        console.error("Failed to copy link");
+        toast.error("Unable to copy the link.");
       }
     }
   };
@@ -90,6 +94,11 @@ const BlogDetailPage: React.FC = () => {
   const formatCategoryName = (category: string) => {
     return category.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
+
+  const sanitizedContent = useMemo(
+    () => DOMPurify.sanitize(blogPost?.content ?? ""),
+    [blogPost?.content]
+  );
 
   if (isLoading) {
     return (
@@ -221,11 +230,7 @@ const BlogDetailPage: React.FC = () => {
               <div className="flex items-center">
                 <User className="w-4 h-4 mr-2" />
                 <span>
-                  {typeof blogPost.author === "object"
-                    ? `${blogPost.author.first_name || ""} ${
-                        blogPost.author.last_name || ""
-                      }`.trim() || blogPost.author.username
-                    : `Author ID: ${blogPost.author}`}
+                  {blogPost.author_name || `Author ID: ${blogPost.author}`}
                 </span>
               </div>
               <div className="flex items-center">
@@ -254,7 +259,7 @@ const BlogDetailPage: React.FC = () => {
             {/* Content */}
             <div
               className="prose prose-lg max-w-none"
-              dangerouslySetInnerHTML={{ __html: blogPost.content }}
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
 
             {/* Last Updated */}

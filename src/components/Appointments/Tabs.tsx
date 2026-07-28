@@ -1,123 +1,77 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo, useState } from "react";
-import { Search, Calendar, History } from "lucide-react";
-import type { Appointment } from "@/interface/appointment.interface";
+import { Calendar, History, Search } from "lucide-react";
+
+import type {
+  Appointment,
+  AppointmentListResponse,
+} from "@/interface/appointment.interface";
 import AppointmentSection from "./Section";
 
 interface AppointmentTabsProps {
-  appointments: any;
-  activeTab: "upcoming" | "past";
-  onTabChange: (tab: "upcoming" | "past") => void;
+  appointments?: AppointmentListResponse;
   onEditAppointment: (appointment: Appointment) => void;
-  searchTerm: string;
-  onSearchChange: (term: string) => void;
-  statusFilter: string;
 }
+
+const businessDate = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
 const AppointmentTabs = ({
   appointments,
   onEditAppointment,
 }: AppointmentTabsProps) => {
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "history">(
+    "upcoming"
+  );
   const [searchTerm, setSearchTerm] = useState("");
 
   const categorizedAppointments = useMemo(() => {
-    if (!appointments?.results) {
-      console.log("❌ No appointments data");
-      return { upcoming: [], past: [] };
-    }
-
-    const now = new Date();
-    const todayDate = now.toISOString().split("T")[0];
-    
-    console.log("📅 Today's date:", todayDate);
-    console.log("📊 Total appointments in data:", appointments.results.length);
-
-    const filtered = appointments.results.filter((apt: Appointment) => {
-      // Exclude today's appointments (they're handled separately)
-      if (apt.appointment_date === todayDate) {
-        console.log("⏭️ Skipping today's appointment:", apt.appointment_date, apt.client_name);
-        return false;
-      }
-
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        if (
-          !apt.client_name.toLowerCase().includes(searchLower) &&
-          !apt.client_email.toLowerCase().includes(searchLower) &&
-          !apt.service_details.name.toLowerCase().includes(searchLower)
-        ) {
-          return false;
-        }
-      }
-
-      return true;
+    const today = businessDate();
+    const query = searchTerm.trim().toLowerCase();
+    const matching = (appointments?.results ?? []).filter((appointment) => {
+      if (!query) return true;
+      return [
+        appointment.client_name,
+        appointment.client_email,
+        appointment.client_phone,
+        appointment.service_details.name,
+      ].some((value) => value.toLowerCase().includes(query));
     });
 
-    console.log("✅ Appointments after filtering (excluding today):", filtered.length);
+    const upcoming: Appointment[] = [];
+    const history: Appointment[] = [];
 
-    const categorized = {
-      upcoming: [] as Appointment[],
-      past: [] as Appointment[],
-    };
-
-    filtered.forEach((apt: Appointment) => {
-      const appointmentDate = apt.appointment_date;
-      
-      console.log(`\n🔍 Processing appointment:
-        Client: ${apt.client_name}
-        Date: ${appointmentDate}
-        Status: ${apt.status}
-        Today: ${todayDate}
-        Comparison: ${appointmentDate} vs ${todayDate}
-        Is Future? ${appointmentDate > todayDate}
-        Is Past? ${appointmentDate < todayDate}`);
-      
-      // Compare dates: if appointment date is after today, it's upcoming
-      if (appointmentDate > todayDate) {
-        console.log(`  → Future appointment`);
-        // Only show active appointments in upcoming (not cancelled, completed, or no_show)
-        if (
-          apt.status !== "cancelled" &&
-          apt.status !== "completed" &&
-          apt.status !== "no_show"
-        ) {
-          console.log(`  ✅ Added to UPCOMING (status: ${apt.status})`);
-          categorized.upcoming.push(apt);
-        } else {
-          console.log(`  ⛔ Skipped (inactive status: ${apt.status})`);
-        }
-      } 
-      // If appointment date is before today, it's past
-      else if (appointmentDate < todayDate) {
-        console.log(`  ← Past appointment - Adding to PAST (status: ${apt.status})`);
-        // Past appointments - include ALL appointments regardless of status
-        categorized.past.push(apt);
-      } else {
-        console.log(`  ⚠️ Date equals today (should have been filtered)`);
+    matching.forEach((appointment) => {
+      const isActive =
+        appointment.status === "booked" ||
+        appointment.status === "confirmed";
+      if (
+        isActive &&
+        !appointment.is_past_due &&
+        appointment.appointment_date !== today
+      ) {
+        upcoming.push(appointment);
+      } else if (!isActive || appointment.is_past_due) {
+        history.push(appointment);
       }
     });
 
-    console.log("\n📈 FINAL COUNTS:");
-    console.log("  Upcoming:", categorized.upcoming.length);
-    console.log("  Past:", categorized.past.length);
+    upcoming.sort(
+      (left, right) =>
+        left.appointment_date.localeCompare(right.appointment_date) ||
+        left.appointment_time.localeCompare(right.appointment_time)
+    );
+    history.sort(
+      (left, right) =>
+        right.appointment_date.localeCompare(left.appointment_date) ||
+        right.appointment_time.localeCompare(left.appointment_time)
+    );
 
-    // Sort upcoming appointments (earliest first)
-    categorized.upcoming = categorized.upcoming.sort((a, b) => {
-      const dateDiff = a.appointment_date.localeCompare(b.appointment_date);
-      if (dateDiff !== 0) return dateDiff;
-      return a.appointment_time.localeCompare(b.appointment_time);
-    });
-
-    // Sort past appointments (latest first)
-    categorized.past = categorized.past.sort((a, b) => {
-      const dateDiff = b.appointment_date.localeCompare(a.appointment_date);
-      if (dateDiff !== 0) return dateDiff;
-      return b.appointment_time.localeCompare(a.appointment_time);
-    });
-
-    return categorized;
+    return { upcoming, history };
   }, [appointments, searchTerm]);
 
   const tabs = [
@@ -125,101 +79,82 @@ const AppointmentTabs = ({
       key: "upcoming" as const,
       label: "Upcoming",
       icon: Calendar,
-      count: categorizedAppointments.upcoming.length,
       appointments: categorizedAppointments.upcoming,
+      emptyMessage: "No upcoming appointments scheduled.",
     },
     {
-      key: "past" as const,
-      label: "Past",
+      key: "history" as const,
+      label: "History",
       icon: History,
-      count: categorizedAppointments.past.length,
-      appointments: categorizedAppointments.past,
+      appointments: categorizedAppointments.history,
+      emptyMessage: "No appointment history found.",
     },
   ];
 
+  const selectedTab = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      {/* Header with Search */}
-      <div className="p-6 border-b border-gray-200">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">
-            All Appointments
-          </h2>
-        </div>
-
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+    <div className="overflow-hidden rounded-xl border border-gray-100 bg-white shadow-sm">
+      <div className="border-b border-gray-200 p-6">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">
+          All appointments
+        </h2>
+        <label className="relative block max-w-md">
+          <span className="sr-only">Search appointments</span>
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
           <input
-            type="text"
-            placeholder="Search by client name, email, or service..."
+            type="search"
+            placeholder="Search client, phone, email, or service"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+            onChange={(event) => setSearchTerm(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-4 focus:border-transparent focus:ring-2 focus:ring-blue-500"
           />
-        </div>
+        </label>
       </div>
 
-      {/* Compact Tab Headers */}
-      <div className="flex border-b border-gray-200">
-        <div className="flex w-auto gap-10">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => {
-                  console.log(`🔄 Switching to ${tab.key} tab`);
-                  setActiveTab(tab.key);
-                }}
-                className={`
-                  px-8 py-3 font-medium transition-all duration-200 border-b-2 flex items-center gap-2 min-w-[140px] rounded-t-lg
-                  ${
-                    activeTab === tab.key
-                      ? "text-blue-600 border-blue-500 bg-blue-50"
-                      : "text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50"
-                  }
-                `}
+      <div className="flex border-b border-gray-200" role="tablist">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex min-w-36 items-center justify-center gap-2 border-b-2 px-6 py-3 font-medium ${
+                activeTab === tab.key
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-transparent text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                  activeTab === tab.key
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-600"
+                }`}
               >
-                <Icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-                <span
-                  className={`
-                  px-2 py-0.5 rounded-full text-xs font-bold min-w-[20px]
-                  ${
-                    activeTab === tab.key
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-200 text-gray-600"
-                  }
-                `}
-                >
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                {tab.appointments.length}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Tab Content */}
-      <div className="p-6">
-        {tabs.map(
-          (tab) =>
-            activeTab === tab.key && (
-              <AppointmentSection
-                key={tab.key}
-                title={tab.label}
-                appointments={tab.appointments}
-                onEditAppointment={onEditAppointment}
-                emptyMessage={
-                  searchTerm
-                    ? `No ${tab.key} appointments match your search`
-                    : tab.key === "upcoming"
-                    ? "No upcoming appointments scheduled"
-                    : "No past appointments found"
-                }
-              />
-            )
-        )}
+      <div className="p-6" role="tabpanel">
+        <AppointmentSection
+          title={selectedTab.label}
+          appointments={selectedTab.appointments}
+          onEditAppointment={onEditAppointment}
+          emptyMessage={
+            searchTerm
+              ? `No ${selectedTab.label.toLowerCase()} appointments match your search.`
+              : selectedTab.emptyMessage
+          }
+        />
       </div>
     </div>
   );

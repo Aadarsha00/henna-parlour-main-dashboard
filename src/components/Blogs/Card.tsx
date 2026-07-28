@@ -1,51 +1,31 @@
 import type { BlogPost } from "@/interface/blog.interface";
 import { Calendar, Edit2, Eye, FileText, Star, Trash2 } from "lucide-react";
-import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 export const BlogCard: React.FC<{
   post: BlogPost;
-  onDelete: (slug: string) => void;
+  onDelete: (slug: string) => Promise<void>;
 }> = ({ post, onDelete }) => {
+  const navigate = useNavigate();
   const handleCardClick = () => {
-    window.location.href = `/blog/${post.slug}`;
+    navigate(`/blog/${post.slug}`);
   };
 
   const handleEdit = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `/blog/edit/${post.slug}`;
+    navigate(`/blog/edit/${post.slug}`);
   };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Replace window.confirm with toast
-    toast
-      .promise(
-        new Promise<void>((resolve, reject) => {
-          // Show a confirmation toast with actions
-          const confirmDelete = window.confirm(
-            "Are you sure you want to delete this blog post?"
-          );
-          if (confirmDelete) resolve();
-          else reject();
-        }),
-        {
-          loading: "Checking...",
-          success: "Deleting...",
-          error: "Cancelled deletion",
-        }
-      )
-      .then(() => {
-        onDelete(post.slug);
-        toast.success("Blog post deleted successfully");
-      })
-      .catch(() => {
-        // Do nothing on cancel or rejected promise
-      });
+    if (window.confirm("Delete this blog post permanently?")) {
+      void onDelete(post.slug).catch(() => undefined);
+    }
   };
 
   const handleView = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.location.href = `/blog/${post.slug}`;
+    navigate(`/blog/${post.slug}`);
   };
 
   return (
@@ -106,7 +86,9 @@ export const BlogCard: React.FC<{
         <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3" />
-            {new Date(post.published_at).toLocaleDateString()}
+            {new Date(
+              post.published_at || post.created_at
+            ).toLocaleDateString()}
           </div>
         </div>
 

@@ -29,7 +29,6 @@ interface UpdateBlogFormData {
   is_featured: boolean;
   meta_description: string;
   excerpt: string;
-  author: number;
   featured_image: FileList | null;
 }
 
@@ -47,6 +46,7 @@ const UpdateBlogPost: React.FC = () => {
     data: blogPost,
     isLoading: postLoading,
     error: postError,
+    refetch: refetchPost,
   } = useQuery({
     queryKey: ["blog-post", slug],
     queryFn: () => getBlogPostBySlug(slug!),
@@ -58,6 +58,7 @@ const UpdateBlogPost: React.FC = () => {
     data: categories = [],
     isLoading: categoriesLoading,
     error: categoriesError,
+    refetch: refetchCategories,
   } = useQuery({
     queryKey: ["blog-categories"],
     queryFn: getBlogCategories,
@@ -81,7 +82,6 @@ const UpdateBlogPost: React.FC = () => {
       is_featured: false,
       meta_description: "",
       excerpt: "",
-      author: 1,
       featured_image: null,
     },
     mode: "onChange",
@@ -104,10 +104,6 @@ const UpdateBlogPost: React.FC = () => {
         is_featured: blogPost.is_featured,
         meta_description: blogPost.meta_description || "",
         excerpt: blogPost.excerpt,
-        author:
-          typeof blogPost.author === "object"
-            ? blogPost.author.id
-            : blogPost.author,
         featured_image: null,
       });
       setPreviewUrl(blogPost.featured_image_url);
@@ -135,7 +131,6 @@ const UpdateBlogPost: React.FC = () => {
       navigate("/blog");
     },
     onError: (error) => {
-      console.error("Failed to update blog post:", error);
       toast.error(
         error instanceof Error ? error.message : "Failed to update blog post",
         {
@@ -157,7 +152,6 @@ const UpdateBlogPost: React.FC = () => {
       is_featured: data.is_featured,
       meta_description: data.meta_description,
       excerpt: data.excerpt,
-      author: data.author,
       ...(hasImageChanged && file && { featured_image: file }),
     };
 
@@ -285,13 +279,15 @@ const UpdateBlogPost: React.FC = () => {
           </p>
           <div className="space-x-4">
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                void Promise.all([refetchPost(), refetchCategories()]);
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Retry
             </button>
             <button
-              onClick={() => navigate("/admin/blog")}
+              onClick={() => navigate("/blog")}
               className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Back to Blog Management
@@ -697,11 +693,7 @@ const UpdateBlogPost: React.FC = () => {
             <div>
               <span className="text-gray-500">Author:</span>
               <span className="ml-2 font-medium">
-                {typeof blogPost.author === "object"
-                  ? `${blogPost.author.first_name || ""} ${
-                      blogPost.author.last_name || ""
-                    }`.trim() || blogPost.author.username
-                  : `User ID: ${blogPost.author}`}
+                {blogPost.author_name || `User ID: ${blogPost.author}`}
               </span>
             </div>
             <div>

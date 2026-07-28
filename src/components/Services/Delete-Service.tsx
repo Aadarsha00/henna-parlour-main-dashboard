@@ -23,8 +23,8 @@ const DeleteServiceDialog: React.FC<DeleteServiceDialogProps> = ({
     setIsDeleting(true);
     try {
       await onConfirm();
-    } catch (error) {
-      console.error("Delete failed:", error);
+    } catch {
+      // The owning mutation keeps the dialog open and displays the API error.
     } finally {
       setIsDeleting(false);
     }

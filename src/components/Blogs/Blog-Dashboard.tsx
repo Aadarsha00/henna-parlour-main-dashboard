@@ -7,10 +7,13 @@ import { BlogCard } from "./Card";
 import { FileText, Plus } from "lucide-react";
 import { Pagination } from "./Pagination";
 import { BlogStats } from "./Stats";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 
 const BlogManagementPage: React.FC = () => {
   const [filters, setFilters] = useState<BlogFilters>({});
   const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
 
   const {
     data: blogData,
@@ -19,9 +22,13 @@ const BlogManagementPage: React.FC = () => {
     refetch,
   } = useQuery({
     queryKey: ["admin-blog-posts", filters, currentPage],
-    queryFn: () => getAllBlogPostsForAdmin({ ...filters, page: currentPage }),
+    queryFn: () =>
+      getAllBlogPostsForAdmin({
+        ...filters,
+        page: currentPage,
+        page_size: 12,
+      }),
   });
-  console.log("first", blogData);
 
   const handleFilterChange = (newFilters: BlogFilters) => {
     setFilters(newFilters);
@@ -31,10 +38,13 @@ const BlogManagementPage: React.FC = () => {
   const handleDelete = async (slug: string) => {
     try {
       await deleteBlogPost(slug);
-      refetch();
+      await refetch();
+      toast.success("Blog post deleted.");
     } catch (error) {
-      console.error("Failed to delete blog post:", error);
-      alert("Failed to delete blog post. Please try again.");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete blog post."
+      );
+      throw error;
     }
   };
 
@@ -43,7 +53,7 @@ const BlogManagementPage: React.FC = () => {
   };
 
   const handleCreateNew = () => {
-    window.location.href = "/blog/create";
+    navigate("/blog/create");
   };
 
   const totalPages = blogData ? Math.ceil(blogData.count / 12) : 0;

@@ -30,12 +30,8 @@ const GalleryCard: React.FC<GalleryCardProps> = ({
       {/* Image */}
       <div className="relative">
         <img
-          src={
-            image.image_url.startsWith("http")
-              ? image.image_url
-              : `https://api-beautiful-eyebrow.ctrlbits.xyz${image.image_url}`
-          }
-          alt={image.title || image.caption || "Gallery image"}
+          src={image.image_url}
+          alt={image.caption || "Gallery image"}
           className="w-full h-48 object-cover"
           loading="lazy"
           onError={(e) => {
@@ -65,7 +61,7 @@ const GalleryCard: React.FC<GalleryCardProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold truncate">
-              {image.title || image.caption || "Untitled"}
+              {image.caption || "Untitled"}
             </h3>
             <div className="flex items-center justify-between mt-1">
               <p className="text-xs text-gray-600 capitalize">

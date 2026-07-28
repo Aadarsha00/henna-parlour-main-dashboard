@@ -28,11 +28,8 @@ export function SidebarDemo({ children }: { children: React.ReactNode }) {
 
   const { logout } = authContext;
 
-  const handleLogout = () => {
-    console.log("Logout initiated");
-
-    // Use the context's logout method (it already clears localStorage)
-    logout();
+  const handleLogout = async () => {
+    await logout();
 
     // Close sidebar on mobile after logout
     if (isMobile) {
@@ -167,7 +164,7 @@ export function SidebarDemo({ children }: { children: React.ReactNode }) {
                 {/* Enhanced logout button styled like SidebarLink */}
                 <button
                   onClick={() => {
-                    handleLogout();
+                    void handleLogout();
                   }}
                   className={cn(
                     "flex items-center justify-start gap-2 group/sidebar py-2 -ml-3 text-sm font-normal text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors duration-150 rounded-md",

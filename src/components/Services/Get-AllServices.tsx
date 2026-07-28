@@ -10,15 +10,17 @@ import type {
   ServiceFilter,
   ServicesResponse,
 } from "@/interface/Service.interface";
+import toast from "react-hot-toast";
 
 const AllServicesPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = useState<ServiceFilter>({
-    category: "lashes",
+    category: "all",
     search: "",
   });
+  const [page, setPage] = useState(1);
 
   // Fetch services query
   const {
@@ -29,31 +31,32 @@ const AllServicesPage = () => {
     refetch,
     isFetching,
   } = useQuery<ServicesResponse, Error>({
-    queryKey: ["services", filters],
-    queryFn: () => getServices(filters),
+    queryKey: ["services", filters, page],
+    queryFn: () => getServices({ ...filters, page }),
     staleTime: 5 * 60 * 1000,
   });
 
   // Extract services and pagination info from response
   const services = serviceResponse?.results || [];
   const totalCount = serviceResponse?.count || 0;
-  const hasNext = serviceResponse?.next !== null;
-  const hasPrevious = serviceResponse?.previous !== null;
+  const hasNext = Boolean(serviceResponse?.next);
+  const hasPrevious = Boolean(serviceResponse?.previous);
 
   // Delete service mutation
   const deleteServiceMutation = useMutation({
     mutationFn: (serviceId: number) => deleteService(serviceId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
-      console.log("Service deleted successfully");
+      toast.success("Service deleted.");
     },
-    onError: (error) => {
-      console.error("Failed to delete service:", error);
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
   const handleFiltersChange = (newFilters: ServiceFilter) => {
     setFilters(newFilters);
+    setPage(1);
   };
 
   const handleDeleteService = async (serviceId: number): Promise<void> => {
@@ -142,12 +145,20 @@ const AllServicesPage = () => {
             </div>
             <div className="flex space-x-2">
               {hasPrevious && (
-                <button className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                >
                   Previous
                 </button>
               )}
               {hasNext && (
-                <button className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50">
+                <button
+                  type="button"
+                  onClick={() => setPage((current) => current + 1)}
+                  className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+                >
                   Next
                 </button>
               )}

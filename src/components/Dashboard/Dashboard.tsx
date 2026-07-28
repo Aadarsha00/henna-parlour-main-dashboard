@@ -1,566 +1,484 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  BarChart,
+  Area,
+  AreaChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  ResponsiveContainer,
 } from "recharts";
 import {
-  Calendar,
-  Briefcase,
-  DollarSign,
-  Clock,
-  CheckCircle,
   AlertCircle,
+  Briefcase,
+  Calendar,
+  CheckCircle,
+  Clock,
   Loader2,
   RefreshCw,
-  Menu,
-  X,
 } from "lucide-react";
-
-// Import your API functions
 import {
+  eachDayOfInterval,
+  format,
+  isAfter,
+  parseISO,
+  subDays,
+} from "date-fns";
+
+import {
+  getAppointmentsByDateRange,
   getAppointmentsCountByStatus,
   getTodaysAppointments,
-  getAppointmentsByDateRange,
-  getPaymentPendingAppointments,
 } from "@/api/appointment.api";
 import { getServices } from "@/api/services.api";
+import type {
+  Appointment,
+  AppointmentStatus,
+} from "@/interface/appointment.interface";
+
+const statusStyles: Record<AppointmentStatus, string> = {
+  booked: "bg-yellow-100 text-yellow-800",
+  confirmed: "bg-blue-100 text-blue-800",
+  completed: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+  late_cancelled: "bg-orange-100 text-orange-800",
+  no_show: "bg-gray-100 text-gray-800",
+};
+
+const humanize = (value: string) =>
+  value.replaceAll("_", " ").replace(/\b\w/g, (letter) =>
+    letter.toUpperCase()
+  );
 
 const DashboardPage = () => {
+  const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState({
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0],
-    end: new Date().toISOString().split("T")[0],
+    start: format(subDays(new Date(), 13), "yyyy-MM-dd"),
+    end: format(new Date(), "yyyy-MM-dd"),
   });
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const rangeIsValid =
+    Boolean(dateRange.start && dateRange.end) &&
+    !isAfter(parseISO(dateRange.start), parseISO(dateRange.end));
 
-  // Fetch appointment counts by status
   const {
     data: appointmentCounts,
     isLoading: countsLoading,
     error: countsError,
   } = useQuery({
-    queryKey: ["appointmentCounts"],
-    queryFn: () => getAppointmentsCountByStatus(),
-    refetchInterval: 30000,
+    queryKey: ["appointments", "stats"],
+    queryFn: getAppointmentsCountByStatus,
+    refetchInterval: 30_000,
   });
 
-  // Fetch today's appointments
   const {
     data: todaysAppointments,
     isLoading: todayLoading,
     error: todayError,
   } = useQuery({
-    queryKey: ["todaysAppointments"],
-    queryFn: () => getTodaysAppointments(),
-    refetchInterval: 60000,
+    queryKey: ["appointments", "today"],
+    queryFn: getTodaysAppointments,
+    refetchInterval: 60_000,
   });
 
-  // Fetch appointments by date range for trend analysis
   const { data: appointmentsTrend, isLoading: trendLoading } = useQuery({
-    queryKey: ["appointmentsTrend", dateRange.start, dateRange.end],
-    queryFn: () => getAppointmentsByDateRange(dateRange.start, dateRange.end),
-    enabled: !!dateRange.start && !!dateRange.end,
+    queryKey: ["appointments", "trend", dateRange.start, dateRange.end],
+    queryFn: () =>
+      getAppointmentsByDateRange(dateRange.start, dateRange.end),
+    enabled: rangeIsValid,
   });
 
-  // Fetch payment pending appointments
-  const { data: paymentPending, isLoading: paymentLoading } = useQuery({
-    queryKey: ["paymentPending"],
-    queryFn: () => getPaymentPendingAppointments(),
-    refetchInterval: 300000,
-  });
-
-  // Fetch services data
   const { data: servicesData, isLoading: servicesLoading } = useQuery({
     queryKey: ["services"],
     queryFn: () => getServices(),
-    staleTime: 600000,
+    staleTime: 600_000,
   });
 
-  // Process data for charts - Fixed overlapping issue for pie chart
   const statusChartData = appointmentCounts
     ? [
-        { name: "Booked", value: appointmentCounts.booked, color: "#3B82F6" },
+        { name: "Booked", value: appointmentCounts.booked, color: "#EAB308" },
         {
           name: "Confirmed",
           value: appointmentCounts.confirmed,
-          color: "#10B981",
+          color: "#3B82F6",
         },
         {
           name: "Completed",
           value: appointmentCounts.completed,
-          color: "#059669",
+          color: "#10B981",
         },
         {
           name: "Cancelled",
           value: appointmentCounts.cancelled,
           color: "#EF4444",
         },
-        { name: "No Show", value: appointmentCounts.no_show, color: "#F59E0B" },
+        {
+          name: "Late cancelled",
+          value: appointmentCounts.late_cancelled,
+          color: "#F97316",
+        },
+        { name: "No show", value: appointmentCounts.no_show, color: "#6B7280" },
       ].filter((item) => item.value > 0)
     : [];
 
-  // Process appointments trend data
-  const processAppointmentsTrend = () => {
-    if (!appointmentsTrend?.results) return [];
-
-    const grouped = appointmentsTrend.results.reduce(
-      (acc: Record<string, number>, appointment: any) => {
-        const date = new Date(appointment.appointment_date).toLocaleDateString(
-          "en-US",
-          {
-            month: "short",
-            day: "numeric",
-          }
-        );
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
+  const appointmentsTrendData = useMemo(() => {
+    if (!appointmentsTrend || !rangeIsValid) return [];
+    const totals = appointmentsTrend.results.reduce<Record<string, number>>(
+      (accumulator, appointment) => {
+        accumulator[appointment.appointment_date] =
+          (accumulator[appointment.appointment_date] ?? 0) + 1;
+        return accumulator;
       },
       {}
     );
 
-    return Object.entries(grouped)
-      .map(([date, count]) => ({
-        date,
-        appointments: count,
-      }))
-      .slice(-14);
-  };
+    return eachDayOfInterval({
+      start: parseISO(dateRange.start),
+      end: parseISO(dateRange.end),
+    }).map((date) => {
+      const key = format(date, "yyyy-MM-dd");
+      return {
+        date: format(date, "MMM d"),
+        appointments: totals[key] ?? 0,
+      };
+    });
+  }, [appointmentsTrend, dateRange.end, dateRange.start, rangeIsValid]);
 
-  // Process services by category
-  const processServicesByCategory = () => {
-    if (!servicesData?.results) return [];
-
-    const categories = servicesData.results.reduce(
-      (acc: Record<string, number>, service: any) => {
-        acc[service.category] = (acc[service.category] || 0) + 1;
-        return acc;
+  const servicesByCategory = useMemo(() => {
+    if (!servicesData) return [];
+    const totals = servicesData.results.reduce<Record<string, number>>(
+      (accumulator, service) => {
+        accumulator[service.category] =
+          (accumulator[service.category] ?? 0) + 1;
+        return accumulator;
       },
       {}
     );
-
-    const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff7300", "#8dd1e1"];
-
-    return Object.entries(categories).map(([category, count], index) => ({
-      name: category.charAt(0).toUpperCase() + category.slice(1),
+    return Object.entries(totals).map(([category, count]) => ({
+      name: humanize(category),
       value: count,
-      color: colors[index % colors.length],
     }));
-  };
+  }, [servicesData]);
 
-  // Custom label function for pie chart
-  const renderPieLabel = ({
-    name,
-    percent,
-  }: {
-    name: string;
-    percent?: number;
-  }) => {
-    if (percent === undefined) return name;
-    return `${name} ${(percent * 100).toFixed(0)}%`;
+  const refreshDashboard = () => {
+    queryClient.invalidateQueries({ queryKey: ["appointments"] });
+    queryClient.invalidateQueries({ queryKey: ["services"] });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-display">
-      {/* Mobile Header */}
-      <div className="lg:hidden bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
-          <button
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          >
-            {isMobileMenuOpen ? (
-              <X className="h-6 w-6" />
-            ) : (
-              <Menu className="h-6 w-6" />
-            )}
-          </button>
+    <div className="min-h-screen bg-gray-50 p-4 font-display lg:p-6">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="mt-1 text-gray-600">
+            Booking activity and service availability at a glance.
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={refreshDashboard}
+          className="flex items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 hover:bg-gray-50"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </button>
+      </div>
 
-        {isMobileMenuOpen && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => window.location.reload()}
-              className="flex items-center space-x-2 w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh Dashboard</span>
-            </button>
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total appointments"
+          value={appointmentCounts?.total ?? 0}
+          loading={countsLoading}
+          icon={<Calendar className="h-8 w-8 text-blue-600" />}
+        />
+        <StatCard
+          label="Today's appointments"
+          value={todaysAppointments?.count ?? 0}
+          loading={todayLoading}
+          icon={<Clock className="h-8 w-8 text-green-600" />}
+        />
+        <StatCard
+          label="Awaiting confirmation"
+          value={appointmentCounts?.booked ?? 0}
+          loading={countsLoading}
+          icon={<AlertCircle className="h-8 w-8 text-yellow-600" />}
+        />
+        <StatCard
+          label="Total services"
+          value={servicesData?.count ?? 0}
+          loading={servicesLoading}
+          icon={<Briefcase className="h-8 w-8 text-purple-600" />}
+        />
+      </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ChartCard title="Appointment status">
+          {countsError ? (
+            <ChartMessage
+              icon={<AlertCircle className="h-8 w-8" />}
+              text="Failed to load appointment totals."
+            />
+          ) : countsLoading ? (
+            <ChartLoader />
+          ) : statusChartData.length === 0 ? (
+            <ChartMessage
+              icon={<CheckCircle className="h-8 w-8" />}
+              text="No appointment data available."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={statusChartData}
+                  dataKey="value"
+                  nameKey="name"
+                  outerRadius="70%"
+                  label={({ name, percent = 0 }) =>
+                    `${name} ${(percent * 100).toFixed(0)}%`
+                  }
+                >
+                  {statusChartData.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Services by category">
+          {servicesLoading ? (
+            <ChartLoader />
+          ) : servicesByCategory.length === 0 ? (
+            <ChartMessage
+              icon={<Briefcase className="h-8 w-8" />}
+              text="No services available."
+            />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={servicesByCategory}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" fontSize={12} />
+                <YAxis allowDecimals={false} fontSize={12} />
+                <Tooltip />
+                <Bar dataKey="value" fill="#8B5CF6" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+      </div>
+
+      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:p-6">
+        <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Appointment trend
+          </h2>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="text-sm text-gray-600">
+              <span className="sr-only">Trend start date</span>
+              <input
+                type="date"
+                value={dateRange.start}
+                max={dateRange.end}
+                onChange={(event) =>
+                  setDateRange((current) => ({
+                    ...current,
+                    start: event.target.value,
+                  }))
+                }
+                className="w-full rounded border border-gray-300 px-3 py-2 sm:w-auto"
+              />
+            </label>
+            <span className="hidden text-gray-500 sm:inline">to</span>
+            <label className="text-sm text-gray-600">
+              <span className="sr-only">Trend end date</span>
+              <input
+                type="date"
+                value={dateRange.end}
+                min={dateRange.start}
+                onChange={(event) =>
+                  setDateRange((current) => ({
+                    ...current,
+                    end: event.target.value,
+                  }))
+                }
+                className="w-full rounded border border-gray-300 px-3 py-2 sm:w-auto"
+              />
+            </label>
+          </div>
+        </div>
+        {!rangeIsValid ? (
+          <p className="flex h-64 items-center justify-center text-red-600">
+            The start date must be on or before the end date.
+          </p>
+        ) : trendLoading ? (
+          <ChartLoader />
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={appointmentsTrendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" fontSize={12} />
+                <YAxis allowDecimals={false} fontSize={12} />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="appointments"
+                  stroke="#8B5CF6"
+                  fill="#8B5CF6"
+                  fillOpacity={0.35}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>
 
-      <div className="p-4 lg:p-6">
-        {/* Desktop Header */}
-        <div className="hidden lg:block mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-              <p className="text-gray-600 mt-1">
-                Welcome back! Here's what's happening at your Parlour today.
-              </p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => window.location.reload()}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <RefreshCw className="h-4 w-4" />
-                <span>Refresh</span>
-              </button>
-            </div>
-          </div>
+      <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-200 p-4 lg:p-6">
+          <h2 className="text-lg font-semibold text-gray-900">
+            Today's appointments
+          </h2>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs lg:text-sm font-medium text-gray-600">
-                  Total Appointments
-                </p>
-                <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                  {countsLoading ? (
-                    <Loader2 className="h-5 w-5 lg:h-6 lg:w-6 animate-spin" />
-                  ) : (
-                    appointmentCounts?.total || 0
-                  )}
-                </p>
-              </div>
-              <Calendar className="h-6 w-6 lg:h-8 lg:w-8 text-blue-600" />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs lg:text-sm font-medium text-gray-600">
-                  Today's Appointments
-                </p>
-                <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                  {todayLoading ? (
-                    <Loader2 className="h-5 w-5 lg:h-6 lg:w-6 animate-spin" />
-                  ) : (
-                    todaysAppointments?.count || 0
-                  )}
-                </p>
-              </div>
-              <Clock className="h-6 w-6 lg:h-8 lg:w-8 text-green-600" />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs lg:text-sm font-medium text-gray-600">
-                  Payment Pending
-                </p>
-                <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                  {paymentLoading ? (
-                    <Loader2 className="h-5 w-5 lg:h-6 lg:w-6 animate-spin" />
-                  ) : (
-                    paymentPending?.length || 0
-                  )}
-                </p>
-              </div>
-              <DollarSign className="h-6 w-6 lg:h-8 lg:w-8 text-yellow-600" />
-            </div>
-          </div>
-
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs lg:text-sm font-medium text-gray-600">
-                  Total Services
-                </p>
-                <p className="text-xl lg:text-2xl font-bold text-gray-900">
-                  {servicesLoading ? (
-                    <Loader2 className="h-5 w-5 lg:h-6 lg:w-6 animate-spin" />
-                  ) : (
-                    servicesData?.count || 0
-                  )}
-                </p>
-              </div>
-              <Briefcase className="h-6 w-6 lg:h-8 lg:w-8 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          {/* Appointment Status Distribution */}
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">
-              Appointment Status
-            </h3>
-            {countsLoading ? (
-              <div className="flex items-center justify-center h-48 lg:h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              </div>
-            ) : countsError ? (
-              <div className="flex items-center justify-center h-48 lg:h-64 text-red-500">
-                <AlertCircle className="h-8 w-8 mr-2" />
-                <span className="text-sm lg:text-base">
-                  Failed to load data
-                </span>
-              </div>
-            ) : statusChartData.length === 0 ? (
-              <div className="flex items-center justify-center h-48 lg:h-64 text-gray-500">
-                <div className="text-center">
-                  <CheckCircle className="h-8 lg:h-12 w-8 lg:w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-sm lg:text-base">
-                    No appointment data available
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="h-48 lg:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusChartData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={renderPieLabel}
-                      outerRadius="60%"
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {statusChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-
-          {/* Services by Category */}
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <h3 className="text-base lg:text-lg font-semibold text-gray-900 mb-4">
-              Services by Category
-            </h3>
-            {servicesLoading ? (
-              <div className="flex items-center justify-center h-48 lg:h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              </div>
-            ) : (
-              <div className="h-48 lg:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={processServicesByCategory()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" fontSize={12} />
-                    <YAxis fontSize={12} />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#8884d8" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Appointments Trend */}
-        <div className="grid grid-cols-1 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          <div className="bg-white p-4 lg:p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 space-y-4 lg:space-y-0">
-              <h3 className="text-base lg:text-lg font-semibold text-gray-900">
-                Appointments Trend (Last 14 Days)
-              </h3>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-                <input
-                  type="date"
-                  value={dateRange.start}
-                  onChange={(e) =>
-                    setDateRange((prev) => ({ ...prev, start: e.target.value }))
-                  }
-                  className="border border-gray-300 rounded px-2 lg:px-3 py-1 text-xs lg:text-sm w-full sm:w-auto"
-                />
-                <span className="text-gray-500 text-xs lg:text-sm hidden sm:inline">
-                  to
-                </span>
-                <input
-                  type="date"
-                  value={dateRange.end}
-                  onChange={(e) =>
-                    setDateRange((prev) => ({ ...prev, end: e.target.value }))
-                  }
-                  className="border border-gray-300 rounded px-2 lg:px-3 py-1 text-xs lg:text-sm w-full sm:w-auto"
-                />
-              </div>
-            </div>
-            {trendLoading ? (
-              <div className="flex items-center justify-center h-48 lg:h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              </div>
-            ) : (
-              <div className="h-48 lg:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={processAppointmentsTrend()}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" fontSize={12} />
-                    <YAxis fontSize={12} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="appointments"
-                      stroke="#8884d8"
-                      fill="#8884d8"
-                      fillOpacity={0.6}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Today's Appointments Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-4 lg:p-6 border-b border-gray-200">
-            <h3 className="text-base lg:text-lg font-semibold text-gray-900">
-              Today's Appointments
-            </h3>
-          </div>
-          <div className="p-4 lg:p-6">
-            {todayLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-              </div>
-            ) : todayError ? (
-              <div className="flex items-center justify-center py-8 text-red-500">
-                <AlertCircle className="h-6 w-6 mr-2" />
-                <span className="text-sm lg:text-base">
-                  Failed to load today's appointments
-                </span>
-              </div>
-            ) : todaysAppointments?.results &&
-              todaysAppointments.results.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
-                        Service
-                      </th>
-                      <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Time
-                      </th>
-                      <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-3 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                        Payment
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {todaysAppointments.results.map((appointment: any) => (
+        <div className="p-4 lg:p-6">
+          {todayLoading ? (
+            <ChartLoader />
+          ) : todayError ? (
+            <ChartMessage
+              icon={<AlertCircle className="h-6 w-6" />}
+              text="Failed to load today's appointments."
+            />
+          ) : todaysAppointments?.results.length ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {["Client", "Service", "Time", "Duration", "Status"].map(
+                      (heading) => (
+                        <th
+                          key={heading}
+                          scope="col"
+                          className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                        >
+                          {heading}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {todaysAppointments.results.map(
+                    (appointment: Appointment) => (
                       <tr key={appointment.id}>
-                        <td className="px-3 lg:px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {appointment.client_name || "N/A"}
-                            </div>
-                            <div className="text-xs text-gray-500 sm:hidden">
-                              {appointment.service_details.name || "N/A"}
-                            </div>
+                        <td className="whitespace-nowrap px-4 py-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {appointment.client_name}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {appointment.client_phone}
                           </div>
                         </td>
-                        <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">
-                          {appointment.service_details.name || "N/A"}
+                        <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                          {appointment.service_details.name}
                         </td>
-                        <td className="px-3 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {appointment.appointment_time ||
-                            new Date(
-                              appointment.appointment_date
-                            ).toLocaleTimeString()}
+                        <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                          {new Date(
+                            `2000-01-01T${appointment.appointment_time}`
+                          ).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })}
                         </td>
-                        <td className="px-3 lg:px-6 py-4 whitespace-nowrap">
+                        <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                          {appointment.duration_minutes} min
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4">
                           <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              appointment.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : appointment.status === "confirmed"
-                                ? "bg-blue-100 text-blue-800"
-                                : appointment.status === "booked"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : appointment.status === "cancelled"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                              statusStyles[appointment.status]
                             }`}
                           >
-                            {appointment.status}
-                          </span>
-                          <div className="mt-1 md:hidden">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                appointment.payment_status === "paid"
-                                  ? "bg-green-100 text-green-800"
-                                  : appointment.payment_status === "pending"
-                                  ? "bg-red-100 text-red-800"
-                                  : appointment.payment_status === "refunded"
-                                  ? "bg-gray-100 text-gray-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {appointment.payment_status || "N/A"}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 lg:px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              appointment.payment_status === "paid"
-                                ? "bg-green-100 text-green-800"
-                                : appointment.payment_status === "pending"
-                                ? "bg-red-100 text-red-800"
-                                : appointment.payment_status === "refunded"
-                                ? "bg-gray-100 text-gray-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {appointment.payment_status || "N/A"}
+                            {humanize(appointment.status)}
                           </span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Calendar className="h-8 lg:h-12 w-8 lg:w-12 mx-auto mb-4 text-gray-300" />
-                <p className="text-sm lg:text-base">
-                  No appointments scheduled for today
-                </p>
-              </div>
-            )}
-          </div>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <ChartMessage
+              icon={<Calendar className="h-8 w-8" />}
+              text="No appointments scheduled for today."
+            />
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+const StatCard = ({
+  label,
+  value,
+  loading,
+  icon,
+}: {
+  label: string;
+  value: number;
+  loading: boolean;
+  icon: React.ReactNode;
+}) => (
+  <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+        <div className="mt-1 text-2xl font-bold text-gray-900">
+          {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : value}
+        </div>
+      </div>
+      {icon}
+    </div>
+  </div>
+);
+
+const ChartCard = ({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) => (
+  <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm lg:p-6">
+    <h2 className="mb-4 text-lg font-semibold text-gray-900">{title}</h2>
+    <div className="h-64">{children}</div>
+  </div>
+);
+
+const ChartLoader = () => (
+  <div className="flex h-64 items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+  </div>
+);
+
+const ChartMessage = ({
+  icon,
+  text,
+}: {
+  icon: React.ReactNode;
+  text: string;
+}) => (
+  <div className="flex h-full min-h-32 flex-col items-center justify-center gap-2 text-center text-gray-500">
+    {icon}
+    <p>{text}</p>
+  </div>
+);
 
 export default DashboardPage;

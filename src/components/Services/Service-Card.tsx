@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, DollarSign, Eye, Edit, Trash2, CreditCard } from "lucide-react";
+import { Clock, DollarSign, Eye, Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import DeleteServiceDialog from "./Delete-Service";
 import type { Service } from "@/interface/Service.interface";
@@ -65,8 +65,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDelete }) => {
     try {
       await onDelete(service.id);
       setShowDeleteDialog(false);
-    } catch (error) {
-      console.error("Failed to delete service:", error);
+    } catch {
+      // The parent mutation displays the API error.
     }
   };
 
@@ -89,11 +89,15 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDelete }) => {
               >
                 {service.category}
               </span>
-              {service.requires_deposit && (
-                <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">
-                  Deposit
-                </span>
-              )}
+              <span
+                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                  service.is_active === false
+                    ? "bg-gray-100 text-gray-700"
+                    : "bg-green-100 text-green-800"
+                }`}
+              >
+                {service.is_active === false ? "Inactive" : "Active"}
+              </span>
             </div>
           </div>
 
@@ -110,12 +114,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDelete }) => {
               <DollarSign className="w-4 h-4 mr-2" />
               {formatPrice(service.price)}
             </div>
-            {service.requires_deposit && (
-              <div className="flex items-center text-sm text-orange-600">
-                <CreditCard className="w-4 h-4 mr-2" />
-                Deposit: {formatPrice(service.deposit_amount)}
-              </div>
-            )}
           </div>
 
           <div className="flex items-center justify-between pt-4 border-t border-gray-100">

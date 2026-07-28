@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 import React, { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +8,7 @@ import { ErrorMessage } from "../ui/Error";
 import ServiceForm from "./Service-Form";
 import DeleteServiceDialog from "./Delete-Service";
 import type { Service, ServiceFormData } from "@/interface/Service.interface";
+import toast from "react-hot-toast";
 
 const UpdateServicePage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,17 +17,6 @@ const UpdateServicePage: React.FC = () => {
   // Get service ID from URL params and parse it
   const { id } = useParams<{ id: string }>();
   const serviceId = id ? parseInt(id, 10) : NaN;
-
-  // If serviceId is invalid, render an error immediately (no hooks inside this)
-  if (isNaN(serviceId)) {
-    return (
-      <div className="min-h-full w-full bg-gray-50 py-8 px-0 flex items-center justify-center">
-        <p className="text-red-600 text-lg font-semibold">
-          Invalid Service ID.
-        </p>
-      </div>
-    );
-  }
 
   // Fetch service details - hook is called unconditionally
   const {
@@ -38,7 +27,7 @@ const UpdateServicePage: React.FC = () => {
   } = useQuery<Service, Error>({
     queryKey: ["service", serviceId],
     queryFn: () => getService(serviceId),
-    enabled: true, // always enabled since serviceId is valid here
+    enabled: Number.isFinite(serviceId),
   });
 
   // Transform Service to ServiceFormData
@@ -47,12 +36,11 @@ const UpdateServicePage: React.FC = () => {
     
     return {
       name: service.name,
-      description: service.description,
+      description: service.description ?? "",
       price: String(service.price), // Convert to string
       category: service.category,
       duration_minutes: service.duration_minutes,
-      deposit_amount: String(service.deposit_amount), // Convert to string
-      requires_deposit: service.requires_deposit,
+      is_active: service.is_active ?? true,
     };
   }, [service]);
 
@@ -62,10 +50,12 @@ const UpdateServicePage: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       queryClient.invalidateQueries({ queryKey: ["service", serviceId] });
+      toast.success("Service updated.");
       navigate("/services", {
         state: { message: "Service updated successfully!" },
       });
     },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   // Mutation to delete service
@@ -73,10 +63,12 @@ const UpdateServicePage: React.FC = () => {
     mutationFn: () => deleteService(serviceId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
+      toast.success("Service deleted.");
       navigate("/services", {
         state: { message: "Service deleted successfully!" },
       });
     },
+    onError: (error: Error) => toast.error(error.message),
   });
 
   // State to control delete confirmation dialog visibility
@@ -97,6 +89,16 @@ const UpdateServicePage: React.FC = () => {
     await deleteServiceMutation.mutateAsync();
     setShowDeleteDialog(false);
   };
+
+  if (!Number.isFinite(serviceId)) {
+    return (
+      <div className="flex min-h-full w-full items-center justify-center bg-gray-50 py-8">
+        <p className="text-lg font-semibold text-red-600">
+          Invalid service ID.
+        </p>
+      </div>
+    );
+  }
 
   // Loading state UI
   if (isLoading) {

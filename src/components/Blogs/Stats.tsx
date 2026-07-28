@@ -11,7 +11,7 @@ export const BlogStats: React.FC<{ posts: BlogPost[] }> = ({ posts }) => {
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="text-2xl font-bold text-blue-600">{totalPosts}</div>
-        <div className="text-sm text-gray-600">Total Posts</div>
+        <div className="text-sm text-gray-600">Posts on this page</div>
       </div>
       <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="text-2xl font-bold text-green-600">

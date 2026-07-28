@@ -1,21 +1,17 @@
-// Service categories based on your data
-export type ServiceCategory = string; // Allow any category from API
+export type ServiceCategory = string;
 
-// Individual service interface
 export interface Service {
   id: number;
   name: string;
   price: string | number;
   category: string;
   duration_minutes: number;
-  deposit_amount: string | number;
-  requires_deposit: boolean;
   description?: string;
+  is_active?: boolean;
   created_at?: string;
   updated_at?: string;
 }
 
-// API response interface for paginated services
 export interface ServicesResponse {
   count: number;
   next: string | null;
@@ -29,22 +25,18 @@ export interface ServicesListProps {
   error?: string | null;
 }
 
-// Form data interface for creating/updating services
 export interface ServiceFormData {
   name: string;
   description: string;
   price: string;
   category: ServiceCategory;
   duration_minutes: number;
-  deposit_amount: string;
-  requires_deposit: boolean;
+  is_active: boolean;
 }
 
-// Filter interface
 export interface ServiceFilter {
   category: ServiceCategory | "all";
   search: string;
 }
 
-// Alias for response
 export type ServiceResponse = ServicesResponse;

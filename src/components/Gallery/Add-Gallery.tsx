@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,10 +5,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, Upload, X, Image as ImageIcon } from "lucide-react";
 import type { CreateGalleryImageRequest } from "@/interface/gallery.interface";
 import { createGalleryImage } from "@/api/gallery.api";
+import toast from "react-hot-toast";
 
 interface AddGalleryFormData {
-  title: string;
-  image: FileList;
   caption: string;
   category: string;
   is_featured: boolean;
@@ -28,7 +26,6 @@ const AddGalleryPage: React.FC = () => {
     formState: { errors },
   } = useForm<AddGalleryFormData>({
     defaultValues: {
-      title: "",
       caption: "",
       category: "salon",
       is_featured: false,
@@ -39,34 +36,24 @@ const AddGalleryPage: React.FC = () => {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateGalleryImageRequest) => createGalleryImage(data),
-    onSuccess: (response) => {
-      console.log("✅ Create successful:", response);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      toast.success("Gallery image added.");
       navigate("/gallery");
     },
-    onError: (error: any) => {
-      console.error("❌ Create failed:", error);
-      console.error("Error details:", {
-        message: error.message,
-        status: error.status,
-        response: error.response,
-      });
-      // You can add toast notification here
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
   // Handle form submission
   const onSubmit = (data: AddGalleryFormData) => {
-    console.log("Form submitted with data:", data);
-    console.log("Selected file state:", selectedFile);
-
     if (!selectedFile) {
-      console.log("No image selected");
+      toast.error("Choose an image to upload.");
       return;
     }
 
     const formData: CreateGalleryImageRequest = {
-      title: data.title,
       image: selectedFile,
       caption: data.caption,
       category: data.category,
@@ -74,7 +61,6 @@ const AddGalleryPage: React.FC = () => {
       is_active: data.is_active,
     };
 
-    console.log("Calling mutation with:", formData);
     createMutation.mutate(formData);
   };
 
@@ -82,7 +68,16 @@ const AddGalleryPage: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      console.log("Image selected:", file.name, file.size);
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        toast.error("Use a JPG, PNG, or WebP image.");
+        e.target.value = "";
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("Images must be 5 MB or smaller.");
+        e.target.value = "";
+        return;
+      }
       setSelectedFile(file); // Store the file in state
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -158,7 +153,7 @@ const AddGalleryPage: React.FC = () => {
                       Click to upload image
                     </p>
                     <p className="text-sm text-gray-600">
-                      PNG, JPG, GIF up to 10MB
+                      PNG, JPG, or WebP up to 5 MB
                     </p>
                   </label>
                 </div>
@@ -179,24 +174,6 @@ const AddGalleryPage: React.FC = () => {
                 </div>
               )}
 
-              {errors.image && (
-                <p className="mt-1 text-sm text-red-600">
-                  {errors.image.message}
-                </p>
-              )}
-            </div>
-
-            {/* Title */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title
-              </label>
-              <input
-                type="text"
-                {...register("title")}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter image title (optional)"
-              />
             </div>
 
             {/* Caption */}

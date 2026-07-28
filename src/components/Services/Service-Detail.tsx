@@ -1,15 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { Clock, DollarSign, Trash2, Pencil, CreditCard } from "lucide-react";
+import { Clock, DollarSign, Trash2, Pencil } from "lucide-react";
 
 import { getService, deleteService } from "@/api/services.api";
 import type { Service } from "@/interface/Service.interface";
 import { LoadingSpinner } from "../ui/Loading";
 import { ErrorMessage } from "../ui/Error";
 import DeleteServiceDialog from "./Delete-Service";
+import toast from "react-hot-toast";
 
 const SimpleButton = ({
   onClick,
@@ -78,9 +78,10 @@ const ServiceDetailPage: React.FC = () => {
       navigate("/services", {
         state: { message: "Service deleted successfully!" },
       });
+      toast.success("Service deleted.");
     },
     onError: (error) => {
-      console.error("Failed to delete service:", error);
+      toast.error(error.message);
     },
   });
 
@@ -160,11 +161,15 @@ const ServiceDetailPage: React.FC = () => {
                 >
                   {service?.category}
                 </span>
-                {service?.requires_deposit && (
-                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800 border border-orange-200">
-                    Deposit Required
-                  </span>
-                )}
+                <span
+                  className={`px-2 py-1 text-xs font-medium rounded-full border ${
+                    service?.is_active === false
+                      ? "bg-gray-100 text-gray-700 border-gray-200"
+                      : "bg-green-100 text-green-800 border-green-200"
+                  }`}
+                >
+                  {service?.is_active === false ? "Inactive" : "Active"}
+                </span>
               </div>
             </div>
           </div>
@@ -181,7 +186,7 @@ const ServiceDetailPage: React.FC = () => {
               variant="destructive"
               title="Delete Service"
               onClick={() => setShowDeleteDialog(true)}
-              disabled={(deleteServiceMutation as any).isLoading}
+              disabled={deleteServiceMutation.isPending}
             >
               <Trash2 className="w-4 h-4" /> Delete
             </SimpleButton>
@@ -208,15 +213,6 @@ const ServiceDetailPage: React.FC = () => {
               <span className="font-medium">Price:</span>
               <span className="ml-2">{formatPrice(service?.price)}</span>
             </div>
-            {service?.requires_deposit && (
-              <div className="flex items-center text-orange-700">
-                <CreditCard className="w-5 h-5 mr-3 text-orange-400" />
-                <span className="font-medium">Deposit:</span>
-                <span className="ml-2">
-                  {formatPrice(service?.deposit_amount)}
-                </span>
-              </div>
-            )}
           </div>
 
           <div className="text-sm text-gray-500 space-y-2">

@@ -12,14 +12,8 @@ export interface BlogPost {
   meta_description?: string;
   created_at: string;
   updated_at: string;
-  author?:
-    | {
-        id: number;
-        username: string;
-        first_name?: string;
-        last_name?: string;
-      }
-    | number; // Allow both populated object and just ID
+  author?: number;
+  author_name?: string;
 }
 
 export interface BlogApiResponse {
@@ -38,7 +32,6 @@ export interface CreateBlogPostRequest {
   meta_description?: string;
   excerpt?: string;
   featured_image?: File | string; // Support both file upload and URL
-  author?: number; // Author ID
 }
 
 export interface UpdateBlogPostRequest {
@@ -50,7 +43,6 @@ export interface UpdateBlogPostRequest {
   meta_description?: string;
   excerpt?: string;
   featured_image?: File | string; // Support both file upload and URL
-  author?: number; // Author ID
 }
 
 export interface BlogFilters {
@@ -77,7 +69,6 @@ export interface BlogFormData {
   is_published: boolean;
   is_featured: boolean;
   meta_description: string;
-  author?: number;
   featured_image: File | null;
 }
 

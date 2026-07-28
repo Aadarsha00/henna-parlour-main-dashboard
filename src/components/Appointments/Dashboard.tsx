@@ -3,6 +3,7 @@ import { RefreshCw, AlertCircle } from "lucide-react";
 import type {
   Appointment,
   AppointmentFilters,
+  AppointmentStatus,
 } from "@/interface/appointment.interface";
 import { useAppointments } from "./hooks";
 import TodaysSummary from "./Todays-Summary";
@@ -12,11 +13,12 @@ import UpdateAppointmentModal from "./Update-Modal";
 
 const AdminAppointmentsDashboard = () => {
   const [selectedFilters] = useState<AppointmentFilters>({});
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [todaysStatusFilter, setTodaysStatusFilter] = useState<string>("all");
+  const [todaysStatusFilter, setTodaysStatusFilter] = useState<
+    "all" | AppointmentStatus
+  >("all");
 
   // Main data hook
   const {
@@ -83,12 +85,7 @@ const AdminAppointmentsDashboard = () => {
         {/* All Appointments in Tabs - Secondary section */}
         <AppointmentTabs
           appointments={appointmentsData}
-          activeTab="upcoming" // Default to upcoming instead of today since we have dedicated today section
-          onTabChange={() => {}} // We'll manage this within the component
           onEditAppointment={handleEditAppointment}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          statusFilter="all"
         />
 
         {/* Update Modal */}

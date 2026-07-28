@@ -25,7 +25,6 @@ interface CreateBlogFormData {
   is_featured: boolean;
   meta_description: string;
   excerpt: string;
-  author: number;
   featured_image: FileList | null;
 }
 
@@ -41,6 +40,7 @@ const CreateBlogPost: React.FC = () => {
     data: categories = [],
     isLoading: categoriesLoading,
     error: categoriesError,
+    refetch: refetchCategories,
   } = useQuery({
     queryKey: ["blog-categories"],
     queryFn: getBlogCategories,
@@ -64,7 +64,6 @@ const CreateBlogPost: React.FC = () => {
       is_featured: false,
       meta_description: "",
       excerpt: "",
-      author: 1,
       featured_image: null,
     },
     mode: "onChange",
@@ -85,7 +84,6 @@ const CreateBlogPost: React.FC = () => {
       navigate("/blog");
     },
     onError: (error) => {
-      console.error("Failed to create blog post:", error);
       toast.error(
         error instanceof Error ? error.message : "Failed to create blog post"
       );
@@ -108,7 +106,6 @@ const CreateBlogPost: React.FC = () => {
       is_featured: data.is_featured,
       meta_description: data.meta_description,
       excerpt: data.excerpt,
-      author: data.author,
       featured_image: file,
     };
 
@@ -193,7 +190,7 @@ const CreateBlogPost: React.FC = () => {
             Failed to load blog categories. Please try again.
           </p>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => void refetchCategories()}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Retry

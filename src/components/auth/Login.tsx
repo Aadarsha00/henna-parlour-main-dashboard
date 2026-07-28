@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/Login.tsx
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -24,11 +23,8 @@ const Login = () => {
   const mutation = useMutation({
     mutationFn: loginUser,
     onSuccess: (data) => {
-      login(data.access, data.refresh);
+      login(data.access, data.refresh, data.user);
       navigate("/dashboard");
-    },
-    onError: (error: any) => {
-      alert(error?.response?.data?.detail || "Login failed.");
     },
   });
 
@@ -82,6 +78,15 @@ const Login = () => {
             </p>
           )}
         </div>
+
+        {mutation.error && (
+          <p
+            role="alert"
+            className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700"
+          >
+            {mutation.error.message}
+          </p>
+        )}
 
         <button
           type="submit"

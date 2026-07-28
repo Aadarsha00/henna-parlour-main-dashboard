@@ -4,6 +4,7 @@ import { ArrowLeft, Plus } from "lucide-react";
 import { createService } from "@/api/services.api";
 import ServiceForm from "./Service-Form";
 import type { ServiceFormData } from "@/interface/Service.interface";
+import toast from "react-hot-toast";
 
 const AddServicePage = () => {
   const navigate = useNavigate();
@@ -12,16 +13,16 @@ const AddServicePage = () => {
   // Create service mutation
   const createServiceMutation = useMutation({
     mutationFn: (data: ServiceFormData) => createService(data),
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["services"] });
       queryClient.invalidateQueries({ queryKey: ["service-categories"] });
-      console.log("Service created successfully:", data);
+      toast.success("Service created.");
       navigate("/services", {
         state: { message: "Service created successfully!" },
       });
     },
-    onError: (error) => {
-      console.error("Failed to create service:", error);
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 

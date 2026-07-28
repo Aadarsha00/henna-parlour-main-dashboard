@@ -1,280 +1,205 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import axios from "axios";
 import api from "@/axios/api.axios";
 import type {
   Appointment,
+  AppointmentActionResponse,
+  AppointmentAvailability,
+  AppointmentCounts,
   AppointmentFilters,
   AppointmentListResponse,
-  AppointmentResponse,
-  CreateAppointmentData,
-  PaymentSummary,
   UpdateAppointmentData,
 } from "@/interface/appointment.interface";
 
-// List appointments with optional filters
-export const getAppointments = async (filters?: AppointmentFilters) => {
+const apiError = (error: unknown, fallback: string): Error => {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    const detail =
+      data?.detail ||
+      data?.message ||
+      (typeof data === "object" && data
+        ? Object.values(data).flat().join(" ")
+        : undefined);
+    return new Error(typeof detail === "string" && detail ? detail : fallback);
+  }
+  return error instanceof Error ? error : new Error(fallback);
+};
+
+const appointmentParams = (filters?: AppointmentFilters) => {
+  const params = new URLSearchParams();
+  if (!filters) return params;
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== "") {
+      params.set(key, String(value));
+    }
+  });
+  return params;
+};
+
+const getAppointmentPage = async (
+  url: string,
+  filters?: AppointmentFilters
+): Promise<AppointmentListResponse> => {
+  const response = await api.get<AppointmentListResponse>(url, {
+    params: url === "/appointments/" ? appointmentParams(filters) : undefined,
+  });
+  return response.data;
+};
+
+export const getAppointments = async (
+  filters?: AppointmentFilters
+): Promise<AppointmentListResponse> => {
   try {
-    const params = new URLSearchParams();
-
-    if (filters?.status) params.append("status", filters.status);
-    if (filters?.payment_status)
-      params.append("payment_status", filters.payment_status);
-    if (filters?.appointment_date)
-      params.append("appointment_date", filters.appointment_date);
-    if (filters?.service) params.append("service", filters.service.toString());
-    if (filters?.stylist) params.append("stylist", filters.stylist.toString());
-
-    const queryString = params.toString();
-    const url = queryString
-      ? `/appointments/?${queryString}`
-      : "/appointments/";
-
-    const response = await api.get<AppointmentListResponse>(url);
-    return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to fetch appointments";
+    return await getAllAppointmentPages("/appointments/", filters);
+  } catch (error) {
+    throw apiError(error, "Failed to fetch appointments.");
   }
 };
 
-// Create new appointment
-export const createAppointment = async (
-  appointmentData: CreateAppointmentData
-) => {
+const getAllAppointmentPages = async (
+  initialUrl: string,
+  filters?: AppointmentFilters
+): Promise<AppointmentListResponse> => {
   try {
-    const response = await api.post<Appointment>(
-      "/appointments/",
-      appointmentData
-    );
-    return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to create appointment";
+    const firstPage = await getAppointmentPage(initialUrl, filters);
+    const results = [...firstPage.results];
+    let next = firstPage.next;
+    const visited = new Set<string>();
+
+    while (next && !visited.has(next)) {
+      visited.add(next);
+      const page = await getAppointmentPage(next);
+      results.push(...page.results);
+      next = page.next;
+    }
+
+    return {
+      count: results.length,
+      next: null,
+      previous: null,
+      results,
+    };
+  } catch (error) {
+    throw apiError(error, "Failed to fetch appointments.");
   }
 };
 
-// Get appointment details by ID
-export const getAppointmentById = async (appointmentId: number) => {
-  try {
-    const response = await api.get<Appointment>(
-      `/appointments/${appointmentId}/`
-    );
-    return response.data;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message || "Failed to fetch appointment details"
-    );
-  }
-};
-
-// Update appointment
 export const updateAppointment = async (
   appointmentId: number,
   updateData: UpdateAppointmentData
-) => {
+): Promise<Appointment> => {
   try {
-    const response = await api.put<Appointment>(
+    const response = await api.patch<Appointment>(
       `/appointments/${appointmentId}/`,
       updateData
     );
     return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to update appointment";
+  } catch (error) {
+    throw apiError(error, "Failed to update appointment.");
   }
 };
 
-// Cancel appointment
-export const cancelAppointment = async (appointmentId: number) => {
+const appointmentAction = async (
+  appointmentId: number,
+  action: string,
+  fallback: string
+): Promise<AppointmentActionResponse> => {
   try {
-    const response = await api.post<AppointmentResponse>(
-      `/appointments/${appointmentId}/cancel/`
+    const response = await api.post<AppointmentActionResponse>(
+      `/appointments/${appointmentId}/${action}/`
     );
     return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to cancel appointment";
+  } catch (error) {
+    throw apiError(error, fallback);
   }
 };
 
-// Confirm appointment (Admin only)
-export const confirmAppointment = async (appointmentId: number) => {
+export const cancelAppointment = (appointmentId: number) =>
+  appointmentAction(
+    appointmentId,
+    "cancel",
+    "Failed to cancel appointment."
+  );
+
+export const confirmAppointment = (appointmentId: number) =>
+  appointmentAction(
+    appointmentId,
+    "confirm",
+    "Failed to confirm appointment."
+  );
+
+export const markAppointmentCompleted = (appointmentId: number) =>
+  appointmentAction(
+    appointmentId,
+    "mark_completed",
+    "Failed to mark appointment as completed."
+  );
+
+export const markAppointmentNoShow = (appointmentId: number) =>
+  appointmentAction(
+    appointmentId,
+    "mark_no_show",
+    "Failed to mark appointment as no-show."
+  );
+
+export const getAppointmentAvailability = async (
+  appointmentDate: string,
+  serviceId: number
+): Promise<AppointmentAvailability> => {
   try {
-    const response = await api.post<AppointmentResponse>(
-      `/appointments/${appointmentId}/confirm/`
+    const response = await api.get<AppointmentAvailability>(
+      "/appointments/availability/",
+      { params: { date: appointmentDate, service: serviceId } }
     );
     return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to confirm appointment";
+  } catch (error) {
+    throw apiError(error, "Failed to load available times.");
   }
 };
 
-// Mark appointment as completed (Admin only)
-export const markAppointmentCompleted = async (appointmentId: number) => {
-  try {
-    const response = await api.post<AppointmentResponse>(
-      `/appointments/${appointmentId}/mark_completed/`
-    );
-    return response.data;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message ||
-      "Failed to mark appointment as completed"
-    );
-  }
-};
-
-// Mark appointment as no show (Admin only)
-export const markAppointmentNoShow = async (appointmentId: number) => {
-  try {
-    const response = await api.post<AppointmentResponse>(
-      `/appointments/${appointmentId}/mark_no_show/`
-    );
-    return response.data;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message || "Failed to mark appointment as no show"
-    );
-  }
-};
-
-// Get payment summary for appointment
-export const getAppointmentPaymentSummary = async (appointmentId: number) => {
-  try {
-    const response = await api.get<PaymentSummary>(
-      `/appointments/${appointmentId}/payment_summary/`
-    );
-    return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to fetch payment summary";
-  }
-};
-
-// Check payment status for appointment
-export const checkAppointmentPaymentStatus = async (appointmentId: number) => {
-  try {
-    const response = await api.get<{
-      payment_status: string;
-      is_fully_paid: boolean;
-      remaining_balance: number;
-      next_payment_due?: string;
-    }>(`/appointments/${appointmentId}/check_payment_status/`);
-    return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to check payment status";
-  }
-};
-
-// Get user's upcoming appointments (requires authentication)
-export const getMyUpcomingAppointments = async () => {
-  try {
-    const response = await api.get<Appointment[]>("/appointments/my_upcoming/");
-    return response.data;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message || "Failed to fetch upcoming appointments"
-    );
-  }
-};
-
-// Get appointments with pending payments
-export const getPaymentPendingAppointments = async () => {
-  try {
-    const response = await api.get<Appointment[]>(
-      "/appointments/payment_pending/"
-    );
-    return response.data;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message ||
-      "Failed to fetch payment pending appointments"
-    );
-  }
-};
-
-// Bulk operations for admin dashboard
-
-// Get appointments by date range
-export const getAppointmentsByDateRange = async (
+export const getAppointmentsByDateRange = (
   startDate: string,
-  endDate: string,
-  filters?: Omit<AppointmentFilters, "appointment_date">
-) => {
-  try {
-    const params = new URLSearchParams();
-    params.append("appointment_date__gte", startDate);
-    params.append("appointment_date__lte", endDate);
+  endDate: string
+) =>
+  getAppointments({
+    appointment_date__gte: startDate,
+    appointment_date__lte: endDate,
+  });
 
-    if (filters?.status) params.append("status", filters.status);
-    if (filters?.payment_status)
-      params.append("payment_status", filters.payment_status);
-    if (filters?.service) params.append("service", filters.service.toString());
-    if (filters?.stylist) params.append("stylist", filters.stylist.toString());
+export const getAppointmentsCountByStatus =
+  async (): Promise<AppointmentCounts> => {
+    const statuses = [
+      "booked",
+      "confirmed",
+      "completed",
+      "cancelled",
+      "late_cancelled",
+      "no_show",
+    ] as const;
 
-    const response = await api.get<AppointmentListResponse>(
-      `/appointments/?${params.toString()}`
+    const responses = await Promise.all(
+      statuses.map(async (status) => {
+        try {
+          const response = await api.get<AppointmentListResponse>(
+            "/appointments/",
+            { params: { status } }
+          );
+          return response.data.count;
+        } catch (error) {
+          throw apiError(error, "Failed to fetch appointment counts.");
+        }
+      })
     );
-    return response.data;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message ||
-      "Failed to fetch appointments by date range"
-    );
-  }
-};
 
-// Get appointments count by status
-export const getAppointmentsCountByStatus = async () => {
-  try {
-    const [booked, confirmed, completed, cancelled, noShow] = await Promise.all(
-      [
-        getAppointments({ status: "booked" }),
-        getAppointments({ status: "confirmed" }),
-        getAppointments({ status: "completed" }),
-        getAppointments({ status: "cancelled" }),
-        getAppointments({ status: "no_show" }),
-      ]
-    );
+    const counts = Object.fromEntries(
+      statuses.map((status, index) => [status, responses[index]])
+    ) as unknown as Omit<AppointmentCounts, "total">;
 
     return {
-      booked: booked.count,
-      confirmed: confirmed.count,
-      completed: completed.count,
-      cancelled: cancelled.count,
-      no_show: noShow.count,
-      total:
-        booked.count +
-        confirmed.count +
-        completed.count +
-        cancelled.count +
-        noShow.count,
+      ...counts,
+      total: responses.reduce((sum, count) => sum + count, 0),
     };
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message || "Failed to fetch appointment counts"
-    );
-  }
-};
+  };
 
-// Get today's appointments
-export const getTodaysAppointments = async () => {
-  try {
-    const today = new Date().toISOString().split("T")[0];
-    const response = await getAppointments({ appointment_date: today });
-    return response;
-  } catch (error: any) {
-    throw (
-      error?.response?.data?.message || "Failed to fetch today's appointments"
-    );
-  }
-};
-
-// Search appointments by client name or email
-export const searchAppointments = async (searchTerm: string) => {
-  try {
-    const params = new URLSearchParams();
-    params.append("search", searchTerm);
-
-    const response = await api.get<AppointmentListResponse>(
-      `/appointments/?${params.toString()}`
-    );
-    return response.data;
-  } catch (error: any) {
-    throw error?.response?.data?.message || "Failed to search appointments";
-  }
-};
+export const getTodaysAppointments = () =>
+  getAllAppointmentPages("/appointments/today/");

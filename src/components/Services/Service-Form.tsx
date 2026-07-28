@@ -38,6 +38,7 @@ const ServiceForm = ({
     formState: { errors, isSubmitting },
     reset,
     watch,
+    getValues,
     setValue,
   } = useForm<ServiceFormData>({
     defaultValues: {
@@ -46,32 +47,38 @@ const ServiceForm = ({
       duration_minutes: 60,
       price: "",
       category: initialData?.category || (categories[0] || ""),
-      deposit_amount: "0.00",
-      requires_deposit: false,
+      is_active: true,
       ...initialData,
     },
   });
 
-  const requiresDeposit = watch("requires_deposit");
+  const isActive = watch("is_active");
 
   useEffect(() => {
     if (initialData) {
-      reset(initialData);
+      reset({
+        name: "",
+        description: "",
+        duration_minutes: 60,
+        price: "",
+        category: categories[0] || "",
+        is_active: true,
+        ...initialData,
+      });
     }
-  }, [initialData, reset]);
+  }, [categories, initialData, reset]);
+
+  useEffect(() => {
+    if (!initialData && categories.length > 0 && !getValues("category")) {
+      setValue("category", categories[0]);
+    }
+  }, [categories, getValues, initialData, setValue]);
 
   const onFormSubmit: SubmitHandler<ServiceFormData> = async (data) => {
     try {
       await onSubmit(data);
-    } catch (error) {
-      console.error("Form submission error:", error);
-    }
-  };
-
-  const toggleDeposit = () => {
-    setValue("requires_deposit", !requiresDeposit);
-    if (!requiresDeposit && !watch("deposit_amount")) {
-      setValue("deposit_amount", "0.00");
+    } catch {
+      // The parent mutation displays the API error.
     }
   };
 
@@ -246,101 +253,52 @@ const ServiceForm = ({
         </p>
       </div>
 
-      {/* Deposit Section */}
+      {/* Booking availability */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div className="flex-1">
             <h4 className="text-sm font-medium text-gray-900 mb-1">
-              Deposit Required
+              Available for booking
             </h4>
             <p className="text-sm text-gray-600">
-              {requiresDeposit
-                ? "This service requires a deposit before booking"
-                : "No deposit required for this service"}
+              {isActive
+                ? "Customers can currently book this service."
+                : "This service is hidden from new bookings."}
             </p>
           </div>
-          <div className="ml-4">
-            <button
-              type="button"
-              onClick={toggleDeposit}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                requiresDeposit ? "bg-blue-600" : "bg-gray-300"
-              }`}
-              aria-label="Toggle deposit requirement"
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                  requiresDeposit ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-          </div>
+          <label className="ml-4 inline-flex cursor-pointer items-center">
+            <input
+              type="checkbox"
+              {...register("is_active")}
+              className="peer sr-only"
+            />
+            <span
+              className="relative h-6 w-11 rounded-full bg-gray-300 transition-colors
+                after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full
+                after:bg-white after:transition-transform peer-checked:bg-blue-600
+                peer-checked:after:translate-x-5 peer-focus-visible:ring-2
+                peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-2"
+              aria-hidden="true"
+            />
+            <span className="sr-only">
+              {isActive ? "Deactivate service" : "Activate service"}
+            </span>
+          </label>
         </div>
-
-        {/* Deposit Amount */}
-        {requiresDeposit && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Deposit Amount ($) *
-            </label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                {...register("deposit_amount", {
-                  required: requiresDeposit
-                    ? "Deposit amount is required"
-                    : false,
-                  min: {
-                    value: 0.01,
-                    message: "Deposit must be greater than 0",
-                  },
-                  pattern: {
-                    value: /^\d+(\.\d{1,2})?$/,
-                    message:
-                      "Deposit must be a valid number with up to 2 decimal places",
-                  },
-                })}
-                type="number"
-                step="0.01"
-                min="0"
-                className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.deposit_amount ? "border-red-300" : "border-gray-300"
-                }`}
-                placeholder="0.00"
-              />
-            </div>
-            {errors.deposit_amount && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.deposit_amount.message}
-              </p>
-            )}
-            <p className="mt-1 text-xs text-gray-500">
-              Amount customers must pay upfront
-            </p>
-          </div>
-        )}
-
-        <div className="mt-3 flex items-center space-x-2">
-          <div
-            className={`w-2 h-2 rounded-full ${
-              requiresDeposit ? "bg-orange-400" : "bg-green-400"
+        <div className="mt-3 flex items-center gap-2">
+          <span
+            className={`h-2 w-2 rounded-full ${
+              isActive ? "bg-green-500" : "bg-gray-400"
             }`}
-          ></div>
+          />
           <span
             className={`text-xs font-medium ${
-              requiresDeposit ? "text-orange-600" : "text-green-600"
+              isActive ? "text-green-700" : "text-gray-600"
             }`}
           >
-            {requiresDeposit ? "DEPOSIT REQUIRED" : "NO DEPOSIT"}
+            {isActive ? "ACTIVE" : "INACTIVE"}
           </span>
         </div>
-
-        {/* Hidden input for form submission */}
-        <input
-          type="hidden"
-          {...register("requires_deposit")}
-          value={requiresDeposit ? "true" : "false"}
-        />
       </div>
 
       {/* Form Actions */}
@@ -380,7 +338,7 @@ const ServiceForm = ({
           <li>• Service names should be clear and descriptive</li>
           <li>• Descriptions help customers understand what's included</li>
           <li>• Duration should include all prep and cleanup time</li>
-          <li>• Deposits help secure bookings for premium services</li>
+          <li>• Deactivate unavailable services instead of deleting history</li>
         </ul>
       </div>
     </form>

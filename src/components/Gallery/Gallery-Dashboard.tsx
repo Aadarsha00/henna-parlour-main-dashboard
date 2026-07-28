@@ -10,6 +10,7 @@ import { deleteGalleryImage, getGalleryImages } from "@/api/gallery.api";
 import GalleryFilter from "./Filter";
 import LoadingSpinner from "./Loading";
 import GalleryCard from "./Card";
+import toast from "react-hot-toast";
 
 const GalleryPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -34,8 +35,12 @@ const GalleryPage: React.FC = () => {
     error,
     refetch,
   } = useQuery<GalleryResponse>({
-    queryKey: ["gallery", filters],
-    queryFn: () => getGalleryImages(filters),
+    queryKey: ["gallery", filters, searchQuery],
+    queryFn: () =>
+      getGalleryImages({
+        ...filters,
+        search: searchQuery.trim() || undefined,
+      }),
   });
 
   // Delete mutation
@@ -43,10 +48,10 @@ const GalleryPage: React.FC = () => {
     mutationFn: deleteGalleryImage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["gallery"] });
+      toast.success("Gallery image deleted.");
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (error: any) => {
-      console.error("Delete failed:", error);
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -62,6 +67,7 @@ const GalleryPage: React.FC = () => {
   // Handle search
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    setFilters((current) => ({ ...current, page: 1 }));
   };
 
   // Handle page change
@@ -76,15 +82,7 @@ const GalleryPage: React.FC = () => {
     }
   };
 
-  // Filter images based on search query (client-side)
-  const filteredImages =
-    galleryData?.results.filter(
-      (image) =>
-        !searchQuery ||
-        image.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        image.caption?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        image.category.toLowerCase().includes(searchQuery.toLowerCase())
-    ) || [];
+  const filteredImages = galleryData?.results ?? [];
 
   if (error) {
     return (
@@ -139,7 +137,7 @@ const GalleryPage: React.FC = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Search images by title, caption, or category..."
+                  placeholder="Search images by caption or category..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -224,6 +222,10 @@ const GalleryPage: React.FC = () => {
                     key={image.id}
                     image={image}
                     onDelete={() => handleDelete(image.id)}
+                    isDeleting={
+                      deleteMutation.isPending &&
+                      deleteMutation.variables === image.id
+                    }
                   />
                 ))}
               </div>
