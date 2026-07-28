@@ -22,4 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local environment files (the template is tracked on purpose)
 .env
+.env.*
+!.env.example
