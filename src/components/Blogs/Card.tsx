@@ -1,6 +1,6 @@
 import type { BlogPost } from "@/interface/blog.interface";
 import { Calendar, Edit2, Eye, FileText, Star, Trash2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { showConfirmationToast } from "@/components/ui/confirm-toast";
 
 export const BlogCard: React.FC<{

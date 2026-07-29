@@ -7,7 +7,7 @@ import { BlogCard } from "./Card";
 import { FileText, Plus } from "lucide-react";
 import { Pagination } from "./Pagination";
 import { BlogStats } from "./Stats";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import toast from "react-hot-toast";
 
 const BlogManagementPage: React.FC = () => {

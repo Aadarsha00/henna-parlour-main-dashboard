@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Clock, DollarSign, Eye, Edit, Trash2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import DeleteServiceDialog from "./Delete-Service";
 import type { Service } from "@/interface/Service.interface";
 

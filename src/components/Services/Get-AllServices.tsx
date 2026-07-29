@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Plus, RefreshCw } from "lucide-react";
 import { getServices, deleteService } from "@/api/services.api";
 import { ErrorMessage } from "../ui/Error";

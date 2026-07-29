@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router";
 import { ArrowLeft, Upload, X, Image as ImageIcon } from "lucide-react";
 import type { CreateGalleryImageRequest } from "@/interface/gallery.interface";
 import { createGalleryImage } from "@/api/gallery.api";

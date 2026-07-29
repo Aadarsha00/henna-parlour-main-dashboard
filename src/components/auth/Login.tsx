@@ -2,7 +2,7 @@
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router";
 import { loginSchema } from "@/schema/auth.schema";
 import { loginUser } from "@/api/auth.api";
 import type { LoginRequest } from "@/interface/auth.interface";

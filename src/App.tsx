@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router";
 import { Loader2 } from "lucide-react";
 
 import { AppLayout } from "./components/layout/App-Layout";
@@ -26,6 +26,16 @@ const UpdateBlog = lazy(() => import("./pages/Blog/Update-Blog"));
 const BlogDetail = lazy(() => import("./pages/Blog/Blog-Detail"));
 const Gallery = lazy(() => import("./pages/Gallery/All-Gallery"));
 const AddGallery = lazy(() => import("./pages/Gallery/Add-Gallery"));
+const Messages = lazy(
+  () => import("./components/Messages/Messages-Dashboard")
+);
+const Promotions = lazy(
+  () => import("./components/Promotions/Promotions-Dashboard")
+);
+const Closures = lazy(
+  () => import("./components/Closures/Closures-Dashboard")
+);
+const Notes = lazy(() => import("./components/Notes/Notes-Dashboard"));
 
 const PageLoader = () => (
   <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -68,6 +78,10 @@ function App() {
                     <Route path="/blog/:slug" element={<BlogDetail />} />
                     <Route path="/gallery" element={<Gallery />} />
                     <Route path="/gallery/add" element={<AddGallery />} />
+                    <Route path="/messages" element={<Messages />} />
+                    <Route path="/promotions" element={<Promotions />} />
+                    <Route path="/closures" element={<Closures />} />
+                    <Route path="/notes" element={<Notes />} />
                     <Route
                       path="*"
                       element={<Navigate to="/dashboard" replace />}

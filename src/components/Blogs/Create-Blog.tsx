@@ -1,7 +1,7 @@
 import React, { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import {
   Upload,
   Save,

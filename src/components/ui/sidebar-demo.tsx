@@ -4,13 +4,17 @@ import {
   IconLayoutDashboard,
   IconBriefcase,
   IconCalendar,
+  IconCalendarOff,
+  IconMail,
+  IconTag,
+  IconNotes,
   IconArticle,
   IconPhoto,
   IconArrowLeft,
   IconMenu2,
 } from "@tabler/icons-react";
 import { motion } from "motion/react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 import { AuthContext } from "@/context/AuthContext";
 
@@ -105,6 +109,27 @@ export function SidebarDemo({ children }: { children: React.ReactNode }) {
       ),
     },
     {
+      label: "Closures",
+      href: "/closures",
+      icon: (
+        <IconCalendarOff className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Messages",
+      href: "/messages",
+      icon: (
+        <IconMail className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Promotions",
+      href: "/promotions",
+      icon: (
+        <IconTag className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
       label: "Blog",
       href: "/blog",
       icon: (
@@ -116,6 +141,13 @@ export function SidebarDemo({ children }: { children: React.ReactNode }) {
       href: "/gallery",
       icon: (
         <IconPhoto className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
+      ),
+    },
+    {
+      label: "Notes",
+      href: "/notes",
+      icon: (
+        <IconNotes className="h-5 w-5 shrink-0 text-neutral-700 dark:text-neutral-200" />
       ),
     },
   ];
